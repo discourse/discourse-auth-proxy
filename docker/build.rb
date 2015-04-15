@@ -1,6 +1,7 @@
 require 'pty'
 
 version = "1.0.0"
+$nocache = false
 
 def run(command)
   lines = []
@@ -20,7 +21,7 @@ end
 
 
 def build(path)
-  lines = run("cd #{path} && docker build --no-cache .")
+  lines = run("cd #{path} && docker build #{$nocache ? "--no-cache" : ""} .")
   lines[-1]["successfully built ".length..-1].strip
 end
 
@@ -33,7 +34,7 @@ tag = "#{repo}:#{version}"
 latest = "#{repo}:#{latest}"
 
 img = build(".")
-run "docker tag #{img} #{tag}"
-run "docker tag #{img} #{latest}"
+run "docker tag -f #{img} #{tag}"
+run "docker tag -f #{img} #{latest}"
 
 

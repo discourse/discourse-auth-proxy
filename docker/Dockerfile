@@ -1,5 +1,6 @@
 FROM gliderlabs/alpine
 
 ADD build_image/discourse-auth-proxy /bin/discourse-auth-proxy
+ADD start.sh /bin/start.sh
 
-CMD ["/bin/discourse-auth-proxy"]
+CMD ["/bin/start.sh"]
