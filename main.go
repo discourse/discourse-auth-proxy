@@ -1,17 +1,13 @@
 package main
 
 import (
-	// "flag"
-	"fmt"
-	// "html"
 	"code.google.com/p/go-uuid/uuid"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	// "fmt"
+	"fmt"
 	"github.com/golang/groupcache/lru"
-	// "html"
 	"github.com/namsral/flag"
 	"log"
 	"net/http"
@@ -85,12 +81,11 @@ func envOrFlag(name, help string) string {
 
 func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoUri string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, _ := r.Cookie("__discourse_proxy")
+		cookie, err := r.Cookie("__discourse_proxy")
 
 		var username string
-		var err error
 
-		if cookie != nil {
+		if err == nil && cookie != nil {
 			username, err = parseCookie(cookie.Value, cookieSecret)
 		}
 
