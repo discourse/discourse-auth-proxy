@@ -20,7 +20,7 @@ end
 
 
 def build(path)
-  lines = run("cd #{path} && docker build --nocache .")
+  lines = run("cd #{path} && docker build --no-cache .")
   lines[-1]["successfully built ".length..-1].strip
 end
 
