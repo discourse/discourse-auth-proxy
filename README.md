@@ -21,3 +21,14 @@ At the moment only "admin" users on the sso endpoint will be allowed through.
 Note: you may use ENV vars as well to pass configuration EG:
 
 ORIGIN_URL=http://somesite.com PROXY_URL=http://listen.com SSO_SECRET="somesecret" SSO_URL="http://somediscourse.com" ./discourse-auth-proxy
+
+Docker Image
+===
+
+You may run using docker using
+
+```
+docker run samsaffron/discourse-auth-proxy
+```
+
+Running will display configuration instructions
