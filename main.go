@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -25,10 +26,10 @@ var nonceCache = lru.New(20)
 
 func main() {
 
-	proxyUriPtr := flag.String("proxy-url", "", "uri to listen on eg: http://localhost:2000")
-	originUriPtr := flag.String("origin-url", "", "origin to proxy eg: http://somesecrethost:2001")
+	proxyUriPtr := flag.String("proxy-url", "", "uri to listen on eg: http://proxy.com")
+	originUriPtr := flag.String("origin-url", "", "origin to proxy eg: http://origin.com")
 	ssoSecretPtr := flag.String("sso-secret", "", "SSO secret for origin")
-	ssoUriPtr := flag.String("sso-url", "", "SSO endpoint eg: http://yourdiscourse.com")
+	ssoUriPtr := flag.String("sso-url", "", "SSO endpoint eg: http://discourse.forum.com")
 
 	flag.Parse()
 
@@ -42,25 +43,26 @@ func main() {
 	_, err = url.Parse(*ssoUriPtr)
 
 	if err != nil {
+		flag.Usage()
 		log.Fatal("invalid sso url, should point at Discourse site with enable sso")
 	}
 
 	proxyUrl, err2 := url.Parse(*proxyUriPtr)
 
 	if err2 != nil {
+		flag.Usage()
 		log.Fatal("invalid proxy uri")
+	}
+
+	if *proxyUriPtr == "" || *originUriPtr == "" || *ssoSecretPtr == "" || *ssoUriPtr == "" {
+		flag.Usage()
+		os.Exit(1)
+		return
 	}
 
 	cookieSecret := uuid.New()
 
 	proxy := httputil.NewSingleHostReverseProxy(originUrl)
-
-	// origDirector := proxy.Director
-	// proxy.Director = func(req *http.Request) {
-	// 	fmt.Printf("I WAS CALLED")
-	// 	req.Header.Set("Original-Request", req.URL.String())
-	// 	origDirector(req)
-	// }
 
 	handler := redirectIfCookieMissing(proxy, *ssoSecretPtr, cookieSecret, *ssoUriPtr)
 
