@@ -22,8 +22,9 @@ var nonceCache = lru.New(20)
 
 func main() {
 
-	proxyUriPtr := flag.String("proxy-url", "", "uri to listen on eg: http://proxy.com")
-	originUriPtr := flag.String("origin-url", "", "origin to proxy eg: http://origin.com")
+	listenUriPtr := flag.String("listen-url", "", "uri to listen on eg: localhost:2001. leave blank to set equal to proxy-url")
+	proxyUriPtr := flag.String("proxy-url", "", "outer url of this host eg: http://secrets.example.com")
+	originUriPtr := flag.String("origin-url", "", "origin to proxy eg: http://localhost:2002")
 	ssoSecretPtr := flag.String("sso-secret", "", "SSO secret for origin")
 	ssoUriPtr := flag.String("sso-url", "", "SSO endpoint eg: http://discourse.forum.com")
 
@@ -50,7 +51,12 @@ func main() {
 		log.Fatal("invalid proxy uri")
 	}
 
-	if *proxyUriPtr == "" || *originUriPtr == "" || *ssoSecretPtr == "" || *ssoUriPtr == "" {
+	if *listenUriPtr == "" {
+		log.Info("Defaulting to listening on the proxy url")
+		*listenUriPtr = proxyUrl.Host
+	}
+
+	if *proxyUriPtr == "" || *originUriPtr == "" || *ssoSecretPtr == "" || *ssoUriPtr == "" || *listenUriPtr == "" {
 		flag.Usage()
 		os.Exit(1)
 		return
@@ -60,10 +66,10 @@ func main() {
 
 	proxy := httputil.NewSingleHostReverseProxy(originUrl)
 
-	handler := redirectIfCookieMissing(proxy, *ssoSecretPtr, cookieSecret, *ssoUriPtr)
+	handler := redirectIfCookieMissing(proxy, *ssoSecretPtr, cookieSecret, *ssoUriPtr, *proxyUriPtr)
 
 	server := &http.Server{
-		Addr:           proxyUrl.Host,
+		Addr:           *listenUriPtr,
 		Handler:        handler,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
@@ -79,7 +85,7 @@ func envOrFlag(name, help string) string {
 	return ""
 }
 
-func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoUri string) http.Handler {
+func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoUri, proxyHost string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("__discourse_proxy")
 
@@ -100,7 +106,7 @@ func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoU
 		sig := query.Get("sig")
 
 		if len(sso) == 0 {
-			url := ssoUri + "/session/sso_provider?" + sso_payload(ssoSecret, "http://"+r.Host, r.URL.String())
+			url := ssoUri + "/session/sso_provider?" + sso_payload(ssoSecret, proxyHost, r.URL.String())
 			http.Redirect(w, r, url, 302)
 		} else {
 			decoded, _ := base64.StdEncoding.DecodeString(sso)
