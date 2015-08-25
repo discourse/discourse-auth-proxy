@@ -10,10 +10,11 @@ Usage:
 
 ```
 Usage of ./discourse-auth-proxy:
-  -origin-url="": origin to proxy eg: http://somesecrethost:2001
-  -proxy-url="": uri to listen on eg: http://localhost:2000
+  -listen-url="": uri to listen on eg: localhost:2001. leave blank to set equal to proxy-url
+  -origin-url="": origin to proxy eg: http://localhost:2002
+  -proxy-url="": outer url of this host eg: http://secrets.example.com
   -sso-secret="": SSO secret for origin
-  -sso-url="": SSO endpoint eg: http://yourdiscourse.com
+  -sso-url="": SSO endpoint eg: http://discourse.forum.com
 ```
 
 ```
