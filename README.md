@@ -16,6 +16,19 @@ Usage of ./discourse-auth-proxy:
   -sso-url="": SSO endpoint eg: http://yourdiscourse.com
 ```
 
+```
+  +--------+    proxy-url   +---------+    listen-url    +----------------------+
+  |  User  |  ============> |  Nginx  |  ==============> | discourse-auth-proxy |
+  +--------+                +---------+                  +----------------------+
+      |                                                             |
+      | sso-url                                          origin-url |
+      |                                                             |
+      v                                                             v
+  +-----------+                                          +----------------------+
+  | Discourse |                                          | Protected web server |
+  +-----------+                                          +----------------------+
+```
+
 At the moment only "admin" users on the sso endpoint will be allowed through.
 
 Note: you may use ENV vars as well to pass configuration EG:
