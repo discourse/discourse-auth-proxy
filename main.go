@@ -52,7 +52,7 @@ func main() {
 	}
 
 	if *listenUriPtr == "" {
-		log.Info("Defaulting to listening on the proxy url")
+		log.Println("Defaulting to listening on the proxy url")
 		*listenUriPtr = proxyUrl.Host
 	}
 
