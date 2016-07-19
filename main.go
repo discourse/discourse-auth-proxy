@@ -1,12 +1,12 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"github.com/pborman/uuid"
 	"github.com/golang/groupcache/lru"
 	"github.com/namsral/flag"
 	"log"
@@ -77,12 +77,6 @@ func main() {
 	}
 
 	log.Fatal(server.ListenAndServe())
-}
-
-func envOrFlag(name, help string) string {
-	flag.String(name, "", help)
-
-	return ""
 }
 
 func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoUri, proxyHost string) http.Handler {
