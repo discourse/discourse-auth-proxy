@@ -28,7 +28,7 @@ func main() {
 	originUriPtr := flag.String("origin-url", "", "origin to proxy eg: http://localhost:2002")
 	ssoSecretPtr := flag.String("sso-secret", "", "SSO secret for origin")
 	ssoUriPtr := flag.String("sso-url", "", "SSO endpoint eg: http://discourse.forum.com")
-	adminOnlyPtr := flag.Bool("admin-only", false, "only allow discourse users with admin rights")
+	allowAllPtr := flag.Bool("allow-all", false, "allow all discourse users (default: admin users only)")
 
 	flag.Parse()
 
@@ -68,7 +68,7 @@ func main() {
 
 	proxy := httputil.NewSingleHostReverseProxy(originUrl)
 
-	handler := redirectIfCookieMissing(proxy, *ssoSecretPtr, cookieSecret, *ssoUriPtr, *proxyUriPtr, *adminOnlyPtr)
+	handler := redirectIfCookieMissing(proxy, *ssoSecretPtr, cookieSecret, *ssoUriPtr, *proxyUriPtr, *allowAllPtr)
 
 	server := &http.Server{
 		Addr:           *listenUriPtr,
@@ -81,7 +81,7 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoUri, proxyHost string, adminOnly bool) http.Handler {
+func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoUri, proxyHost string, allowAll bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("__discourse_proxy")
 
@@ -115,7 +115,7 @@ func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoU
 
 			if len(nonce) > 0 && len(username) > 0 {
 
-				if adminOnly == true {
+				if allowAll == false {
 					if len(admin) < 1 || admin[0] != "true" {
 						log.Println("Rejecting access to non-admin user ", username)
 						w.Write([]byte(fmt.Sprintf("auth-proxy access is restricted to admin users, and %s is not an admin", username)))

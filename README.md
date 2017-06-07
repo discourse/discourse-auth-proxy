@@ -15,7 +15,7 @@ Usage of ./discourse-auth-proxy:
   -proxy-url="": outer url of this host eg: http://secrets.example.com
   -sso-secret="": SSO secret for origin
   -sso-url="": SSO endpoint eg: http://discourse.forum.com
-  -admin-only: restrict access to "admin" users on the SSO endpoint
+  -allow-all: don't restrict access to "admin" users on the SSO endpoint
 
 ```
 
