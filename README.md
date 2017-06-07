@@ -15,6 +15,8 @@ Usage of ./discourse-auth-proxy:
   -proxy-url="": outer url of this host eg: http://secrets.example.com
   -sso-secret="": SSO secret for origin
   -sso-url="": SSO endpoint eg: http://discourse.forum.com
+  -admin-only: restrict access to "admin" users on the SSO endpoint
+
 ```
 
 ```
@@ -29,8 +31,6 @@ Usage of ./discourse-auth-proxy:
   | Discourse |                                          | Protected web server |
   +-----------+                                          +----------------------+
 ```
-
-At the moment only "admin" users on the sso endpoint will be allowed through.
 
 Note: you may use ENV vars as well to pass configuration EG:
 
