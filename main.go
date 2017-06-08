@@ -6,9 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/pborman/uuid"
-	"github.com/golang/groupcache/lru"
-	"github.com/namsral/flag"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -16,6 +13,10 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/golang/groupcache/lru"
+	"github.com/namsral/flag"
+	"github.com/pborman/uuid"
 )
 
 var nonceCache = lru.New(20)
@@ -27,6 +28,7 @@ func main() {
 	originUriPtr := flag.String("origin-url", "", "origin to proxy eg: http://localhost:2002")
 	ssoSecretPtr := flag.String("sso-secret", "", "SSO secret for origin")
 	ssoUriPtr := flag.String("sso-url", "", "SSO endpoint eg: http://discourse.forum.com")
+	allowAllPtr := flag.Bool("allow-all", false, "allow all discourse users (default: admin users only)")
 
 	flag.Parse()
 
@@ -66,7 +68,7 @@ func main() {
 
 	proxy := httputil.NewSingleHostReverseProxy(originUrl)
 
-	handler := redirectIfCookieMissing(proxy, *ssoSecretPtr, cookieSecret, *ssoUriPtr, *proxyUriPtr)
+	handler := redirectIfCookieMissing(proxy, *ssoSecretPtr, cookieSecret, *ssoUriPtr, *proxyUriPtr, *allowAllPtr)
 
 	server := &http.Server{
 		Addr:           *listenUriPtr,
@@ -79,7 +81,7 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoUri, proxyHost string) http.Handler {
+func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoUri, proxyHost string, allowAll bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("__discourse_proxy")
 
@@ -111,7 +113,17 @@ func redirectIfCookieMissing(handler http.Handler, ssoSecret, cookieSecret, ssoU
 			admin := parsedQuery["admin"]
 			nonce := parsedQuery["nonce"]
 
-			if len(nonce) > 0 && len(admin) > 0 && len(username) > 0 && admin[0] == "true" {
+			if len(nonce) > 0 && len(username) > 0 {
+
+				if allowAll == false {
+					if len(admin) < 1 || admin[0] != "true" {
+						log.Println("Rejecting access to non-admin user ", username)
+						w.Write([]byte(fmt.Sprintf("auth-proxy access is restricted to admin users, and %s is not an admin", username)))
+						return
+					}
+					log.Println("Granting access to admin user ", username)
+				}
+
 				returnUrl, err := getReturnUrl(ssoSecret, sso, sig, nonce[0])
 
 				if err != nil {
