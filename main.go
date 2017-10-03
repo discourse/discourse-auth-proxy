@@ -186,10 +186,13 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 
 func getReturnUrl(secret string, payload string, sig string, nonce string) (returnUrl string, err error) {
 	value, gotNonce := nonceCache.Get(nonce)
+	if !gotNonce {
+		err = fmt.Errorf("Nonce %s not found", nonce)
+		return
+	}
 	returnUrl = value.(string)
 	nonceCache.Remove(nonce)
-	valid := ComputeHmac256(payload, secret) == sig && gotNonce
-	if !valid {
+	if ComputeHmac256(payload, secret) != sig {
 		err = fmt.Errorf("Signature is invalid")
 	}
 	return
