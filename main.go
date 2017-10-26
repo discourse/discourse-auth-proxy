@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"github.com/adam-hanna/arrayOperations"
 	"github.com/golang/groupcache/lru"
 	"github.com/namsral/flag"
 	"github.com/pborman/uuid"
@@ -31,6 +32,8 @@ type Config struct {
 	GroupsHeaderPtr   *string
 	CookieSecret      string
 	AllowAllPtr       *bool
+	AllowedGroupsPtr  *string
+	AllowedGroupsList *[]string
 }
 
 func main() {
@@ -42,6 +45,7 @@ func main() {
 	config.SsoSecretPtr = flag.String("sso-secret", "", "SSO secret for origin")
 	config.SsoUriPtr = flag.String("sso-url", "", "SSO endpoint eg: http://discourse.forum.com")
 	config.AllowAllPtr = flag.Bool("allow-all", false, "allow all discourse users (default: admin users only)")
+	config.AllowedGroupsPtr = flag.String("allowed-groups", "", "if set, will only auth if the user is member of at least one specified group. eg: 'admins,build'")
 	config.BasicAuthPtr = flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly")
 	config.UsernameHeaderPtr = flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into")
 	config.GroupsHeaderPtr = flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into")
@@ -72,6 +76,10 @@ func main() {
 	if *config.ListenUriPtr == "" {
 		log.Println("Defaulting to listening on the proxy url")
 		*config.ListenUriPtr = proxyUrl.Host
+	}
+
+	if *config.AllowedGroupsPtr != "" {
+		*config.AllowedGroupsList = strings.Split(*config.AllowedGroupsPtr, ",")
 	}
 
 	if *config.ProxyUriPtr == "" || *config.OriginUriPtr == "" || *config.SsoSecretPtr == "" || *config.SsoUriPtr == "" || *config.ListenUriPtr == "" {
@@ -168,7 +176,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		admin := parsedQuery["admin"]
 		nonce := parsedQuery["nonce"]
 
-		if len(nonce) > 0 && len(admin) > 0 && len(username) > 0 && (admin[0] == "true" || *config.AllowAllPtr) {
+		if len(nonce) > 0 && len(admin) > 0 && len(username) > 0 && (admin[0] == "true" || *config.AllowAllPtr) && groupsIntersect(groups, *config.AllowedGroupsList) {
 			returnUrl, err := getReturnUrl(*config.SsoSecretPtr, sso, sig, nonce[0])
 
 			if err != nil {
@@ -260,4 +268,21 @@ func ComputeHmac256(message string, secret string) string {
 	h := hmac.New(sha256.New, key)
 	h.Write([]byte(message))
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func groupsIntersect(payloadGroups []string, allowedGroups []string) bool {
+	if len(allowedGroups) == 0 {
+
+		return true
+
+	} else {
+
+		_, ok := arrayOperations.Intersect(payloadGroups, allowedGroups)
+
+		if !ok {
+			return false
+		} else {
+			return true
+		}
+	}
 }
