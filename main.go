@@ -28,6 +28,7 @@ type Config struct {
 	SsoUriPtr         *string
 	BasicAuthPtr      *string
 	UsernameHeaderPtr *string
+	GroupsHeaderPtr   *string
 	CookieSecret      string
 	AllowAllPtr       *bool
 }
@@ -43,6 +44,7 @@ func main() {
 	config.AllowAllPtr = flag.Bool("allow-all", false, "allow all discourse users (default: admin users only)")
 	config.BasicAuthPtr = flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly")
 	config.UsernameHeaderPtr = flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into")
+	config.GroupsHeaderPtr = flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into")
 
 	flag.Parse()
 
@@ -136,14 +138,15 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 
 func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWriter, config *Config) {
 	cookie, err := r.Cookie("__discourse_proxy")
-	var username string
+	var username, groups string
 
 	if err == nil && cookie != nil {
-		username, err = parseCookie(cookie.Value, config.CookieSecret)
+		username, groups, err = parseCookie(cookie.Value, config.CookieSecret)
 	}
 
 	if err == nil {
 		r.Header.Set(*config.UsernameHeaderPtr, username)
+		r.Header.Set(*config.GroupsHeaderPtr, groups)
 		handler.ServeHTTP(w, r)
 		return
 	}
@@ -161,10 +164,11 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		parsedQuery, _ := url.ParseQuery(decodedString)
 
 		username := parsedQuery["username"]
+		groups := parsedQuery["groups"]
 		admin := parsedQuery["admin"]
 		nonce := parsedQuery["nonce"]
 
-		if len(nonce) > 0 && len(admin) > 0 && len(username) > 0 && admin[0] == "true" {
+		if len(nonce) > 0 && len(admin) > 0 && len(username) > 0 && (admin[0] == "true" || *config.AllowAllPtr) {
 			returnUrl, err := getReturnUrl(*config.SsoSecretPtr, sso, sig, nonce[0])
 
 			if err != nil {
@@ -175,7 +179,8 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 			// we have a valid auth
 			expiration := time.Now().Add(365 * 24 * time.Hour)
 
-			cookie := http.Cookie{Name: "__discourse_proxy", Value: signCookie(username[0], config.CookieSecret), Expires: expiration, HttpOnly: true}
+			cookieData := strings.Join([]string{username[0], strings.Join(groups, "|")}, ",")
+			cookie := http.Cookie{Name: "__discourse_proxy", Value: signCookie(cookieData, config.CookieSecret), Expires: expiration, HttpOnly: true}
 			http.SetCookie(w, &cookie)
 
 			// works around weird safari stuff
@@ -209,9 +214,10 @@ func signCookie(data, secret string) string {
 	return data + "," + ComputeHmac256(data, secret)
 }
 
-func parseCookie(data, secret string) (parsed string, err error) {
+func parseCookie(data, secret string) (username string, groups string, err error) {
 	err = nil
-	parsed = ""
+	username = ""
+	groups = ""
 
 	split := strings.Split(data, ",")
 
@@ -221,13 +227,16 @@ func parseCookie(data, secret string) (parsed string, err error) {
 	}
 
 	signature := split[len(split)-1]
-	parsed = strings.Join(split[:len(split)-1], ",")
+	parsed := strings.Join(split[:len(split)-1], ",")
 	expected := ComputeHmac256(parsed, secret)
 
 	if expected != signature {
 		parsed = ""
 		err = fmt.Errorf("Expecting signature to match")
 		return
+	} else {
+		username = strings.Split(parsed, ",")[0]
+		groups = strings.Split(parsed, ",")[1]
 	}
 
 	return
