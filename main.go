@@ -15,10 +15,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 var nonceCache = lru.New(20)
+var nonceMutex = &sync.Mutex{}
 
 type Config struct {
 	ListenUriPtr      *string
@@ -190,13 +192,17 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 }
 
 func getReturnUrl(secret string, payload string, sig string, nonce string) (returnUrl string, err error) {
+	nonceMutex.Lock()
 	value, gotNonce := nonceCache.Get(nonce)
+	nonceMutex.Unlock()
 	if !gotNonce {
 		err = fmt.Errorf("Nonce %s not found", nonce)
 		return
 	}
 	returnUrl = value.(string)
+	nonceMutex.Lock()
 	nonceCache.Remove(nonce)
+	nonceMutex.Unlock()
 	if ComputeHmac256(payload, secret) != sig {
 		err = fmt.Errorf("Signature is invalid")
 	}
@@ -251,7 +257,9 @@ func sso_payload(secret string, return_sso_url string, returnUrl string) string 
 
 func addNonce(returnUrl string) string {
 	guid := uuid.New()
+	nonceMutex.Lock()
 	nonceCache.Add(guid, returnUrl)
+	nonceMutex.Unlock()
 	return guid
 }
 
