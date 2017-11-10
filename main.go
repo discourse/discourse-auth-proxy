@@ -82,6 +82,10 @@ func main() {
 		return
 	}
 
+	if *config.BasicAuthPtr != "" {
+		log.Println("Enabling basic auth support")
+	}
+
 	config.CookieSecret = uuid.New()
 
 	proxy := httputil.NewSingleHostReverseProxy(originUrl)
@@ -120,6 +124,7 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 	}
 
 	if auth_header[0:6] == "Basic " {
+		log.Println("Received request with basic auth creds")
 		b_creds, _ := base64.StdEncoding.DecodeString(auth_header[6:])
 		creds := string(b_creds)
 		if creds == *config.BasicAuthPtr {
@@ -130,8 +135,11 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 			username := creds[0:colon_idx]
 			r.Header.Set(*config.UsernameHeaderPtr, username)
 			r.Header.Del("Authorization")
+			log.Printf("Accepted basic auth creds for %s\n", username)
 			handler.ServeHTTP(w, r)
 			return true
+		} else {
+			log.Printf("Rejected basic auth creds.  Authorization header was %s", auth_header)
 		}
 	}
 
