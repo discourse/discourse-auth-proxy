@@ -31,6 +31,7 @@ type Config struct {
 	BasicAuthPtr      *string
 	UsernameHeaderPtr *string
 	GroupsHeaderPtr   *string
+	TimeoutPtr        *int
 	CookieSecret      string
 	AllowAllPtr       *bool
 }
@@ -47,6 +48,7 @@ func main() {
 	config.BasicAuthPtr = flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly")
 	config.UsernameHeaderPtr = flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into")
 	config.GroupsHeaderPtr = flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into")
+	config.TimeoutPtr = flag.Int("timeout", 10, "Read/write timeout")
 
 	flag.Parse()
 
@@ -95,8 +97,8 @@ func main() {
 	server := &http.Server{
 		Addr:           *config.ListenUriPtr,
 		Handler:        handler,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		ReadTimeout:    time.Duration(*config.TimeoutPtr) * time.Second,
+		WriteTimeout:   time.Duration(*config.TimeoutPtr) * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
