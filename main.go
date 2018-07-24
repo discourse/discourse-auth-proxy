@@ -180,6 +180,8 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		admin := parsedQuery["admin"]
 		nonce := parsedQuery["nonce"]
 
+		groupsArray := strings.Split(groups[0], ",")
+
 		if len(nonce) > 0 && len(admin) > 0 && len(username) > 0 && (admin[0] == "true" || *config.AllowAllPtr) {
 			returnUrl, err := getReturnUrl(*config.SsoSecretPtr, sso, sig, nonce[0])
 
@@ -191,7 +193,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 			// we have a valid auth
 			expiration := time.Now().Add(365 * 24 * time.Hour)
 
-			cookieData := strings.Join([]string{username[0], strings.Join(groups, "|")}, ",")
+			cookieData := strings.Join([]string{username[0], strings.Join(groupsArray, "|")}, ",")
 			cookie := http.Cookie{Name: "__discourse_proxy", Value: signCookie(cookieData, config.CookieSecret), Expires: expiration, HttpOnly: true}
 			http.SetCookie(w, &cookie)
 
