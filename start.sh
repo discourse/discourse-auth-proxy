@@ -29,7 +29,7 @@ if [ -z "$GOOD" ]; then
   echo "SSO_URL=http://someurl"
   echo "HOST_PORT=3001"
   echo
-  echo "docker run -d --restart=always -e ORIGIN_URL=\$ORIGIN_URL -e PROXY_URL=http://0.0.0.0:80 -e SSO_SECRET=\$SSO_SECRET -e SSO_URL=\$SSO_URL -p \$HOST_PORT:80 samsaffron/discourse-auth-proxy"
+  echo "docker run -d --restart=always -e ORIGIN_URL=\$ORIGIN_URL -e PROXY_URL=http://0.0.0.0:80 -e SSO_SECRET=\$SSO_SECRET -e SSO_URL=\$SSO_URL -p \$HOST_PORT:80 discourse/discourse-auth-proxy"
 else
   exec /bin/discourse-auth-proxy
 fi

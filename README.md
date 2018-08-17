@@ -43,7 +43,7 @@ Docker Image
 You may run using docker using
 
 ```
-docker run samsaffron/discourse-auth-proxy
+docker run discourse/discourse-auth-proxy
 ```
 
 Running will display configuration instructions

@@ -1,6 +1,0 @@
-#!/bin/bash
-
-set -e
-
-docker build --build-arg=http_proxy=$http_proxy -t discourse/auth-proxy .
-docker push discourse/auth-proxy
