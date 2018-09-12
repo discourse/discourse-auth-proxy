@@ -1,7 +1,7 @@
 FROM golang:alpine as builder
 RUN apk add git
-COPY main.go /go/src/github.com/discourse/discourse-auth-proxy/
 WORKDIR /go/src/github.com/discourse/discourse-auth-proxy
+COPY main.go .
 RUN go get && go build
 
 FROM alpine:latest
