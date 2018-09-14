@@ -16,6 +16,7 @@ Usage of ./discourse-auth-proxy:
   -sso-secret="": SSO secret for origin
   -sso-url="": SSO endpoint eg: http://discourse.forum.com
   -allow-all: don't restrict access to "admin" users on the SSO endpoint
+  -timeout="10": Read/Write timeout
 
 ```
 
