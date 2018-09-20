@@ -34,6 +34,7 @@ type Config struct {
 	TimeoutPtr        *int
 	CookieSecret      string
 	AllowAllPtr       *bool
+	WhitelistPtr      *string
 }
 
 func main() {
@@ -49,6 +50,7 @@ func main() {
 	config.UsernameHeaderPtr = flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into")
 	config.GroupsHeaderPtr = flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into")
 	config.TimeoutPtr = flag.Int("timeout", 10, "Read/write timeout")
+	config.WhitelistPtr = flag.String("whitelist", "", "Path which does not require authorization")
 
 	flag.Parse()
 
@@ -107,6 +109,9 @@ func main() {
 
 func authProxyHandler(handler http.Handler, config *Config) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if checkWhitelist(handler, r, w, config) {
+			return
+		}
 		if checkAuthorizationHeader(handler, r, w, config) {
 			return
 		}
@@ -143,6 +148,15 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 		} else {
 			log.Printf("Rejected basic auth creds.  Authorization header was %s", auth_header)
 		}
+	}
+
+	return false
+}
+
+func checkWhitelist(handler http.Handler, r *http.Request, w http.ResponseWriter, config *Config) bool {
+	if r.URL.Path == *(config.WhitelistPtr) {
+		handler.ServeHTTP(w, r)
+		return true
 	}
 
 	return false
