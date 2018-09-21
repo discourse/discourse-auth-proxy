@@ -35,7 +35,9 @@ Usage of ./discourse-auth-proxy:
 
 Note: you may use ENV vars as well to pass configuration EG:
 
-ORIGIN_URL=http://somesite.com PROXY_URL=http://listen.com SSO_SECRET="somesecret" SSO_URL="http://somediscourse.com" ./discourse-auth-proxy
+``` shell
+    ORIGIN_URL=http://somesite.com PROXY_URL=http://listen.com SSO_SECRET="somesecret" SSO_URL="http://somediscourse.com" ./discourse-auth-proxy
+```
 
 Docker Image
 ===
