@@ -5,7 +5,6 @@ This package allows you to use Discourse as an SSO endpoint for an arbitrary sit
 
 Discourse SSO is invoked prior to serving the proxied site. This allows you to reuse Discourse Auth in a site that ships with no auth.
 
-
 Usage:
 
 ```
@@ -17,27 +16,33 @@ Usage of ./discourse-auth-proxy:
   -sso-url="": SSO endpoint eg: http://discourse.forum.com
   -allow-all: don't restrict access to "admin" users on the SSO endpoint
   -timeout="10": Read/Write timeout
-
 ```
 
 ```
-  +--------+    proxy-url   +---------+    listen-url    +----------------------+
-  |  User  |  ============> |  Nginx  |  ==============> | discourse-auth-proxy |
-  +--------+                +---------+                  +----------------------+
-      |                                                             |
-      | sso-url                                          origin-url |
-      |                                                             |
-      v                                                             v
-  +-----------+                                          +----------------------+
-  | Discourse |                                          | Protected web server |
-  +-----------+                                          +----------------------+
++--------+    proxy-url   +---------+    listen-url    +----------------------+
+|  User  |  ============> |  Nginx  |  ==============> | discourse-auth-proxy |
++--------+                +---------+                  +----------------------+
+    |                                                             |
+    | sso-url                                          origin-url |
+    |                                                             |
+    v                                                             v
++-----------+                                          +----------------------+
+| Discourse |                                          | Protected web server |
++-----------+                                          +----------------------+
 ```
 
-Note: you may use ENV vars as well to pass configuration EG:
+Environment variables may be used as a substitute for command-line flags, e.g.:
 
 ``` shell
-    ORIGIN_URL=http://somesite.com PROXY_URL=http://listen.com SSO_SECRET="somesecret" SSO_URL="http://somediscourse.com" ./discourse-auth-proxy
+ORIGIN_URL='http://somesite.com' \
+PROXY_URL='http://listen.com' \
+SSO_SECRET='somesecret' \
+SSO_URL='http://somediscourse.com' \
+./discourse-auth-proxy
 ```
+
+`-origin-url` may specify a name equipped with [RFC 2782](https://tools.ietf.org/html/rfc2782) DNS SRV records, such as `http://_foo._tcp.example.com`.  If SRV records are found in the DNS, each request is proxied to a host and port taken from these records.
+
 
 Docker Image
 ===

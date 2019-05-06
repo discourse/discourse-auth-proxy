@@ -1,14 +1,12 @@
 package main
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/golang/groupcache/lru"
-	"github.com/namsral/flag"
-	"github.com/pborman/uuid"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -17,6 +15,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/groupcache/lru"
+	"github.com/namsral/flag"
+	"github.com/pborman/uuid"
+
+	"github.com/discourse/discourse-auth-proxy/internal/httpproxy"
 )
 
 var nonceCache = lru.New(20)
@@ -92,7 +96,9 @@ func main() {
 
 	config.CookieSecret = uuid.New()
 
-	proxy := httputil.NewSingleHostReverseProxy(originUrl)
+	dnssrv := httpproxy.NewDNSSRVBackend(originUrl)
+	go dnssrv.Lookup(context.Background(), 50*time.Second, 10*time.Second, 5*time.Minute)
+	proxy := &httputil.ReverseProxy{Director: dnssrv.Director}
 
 	handler := authProxyHandler(proxy, config)
 
