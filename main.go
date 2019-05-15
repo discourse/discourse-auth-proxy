@@ -100,6 +100,10 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 }
 
 func checkWhitelist(handler http.Handler, r *http.Request, w http.ResponseWriter) bool {
+	if config.Whitelist == "" {
+		return false
+	}
+
 	if r.URL.Path == config.Whitelist {
 		handler.ServeHTTP(w, r)
 		return true
