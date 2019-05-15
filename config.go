@@ -25,6 +25,7 @@ type Config struct {
 	UsernameHeader string
 	GroupsHeader   string
 	Timeout        time.Duration
+	LogRequests    bool
 }
 
 func ParseConfig() (*Config, error) {
@@ -85,6 +86,7 @@ func ParseConfig() (*Config, error) {
 	c.UsernameHeader = *rc.UsernameHeader
 	c.GroupsHeader = *rc.GroupsHeader
 	c.Timeout = time.Duration(*rc.Timeout) * time.Second
+	c.LogRequests = *rc.LogRequests
 
 	c.CookieSecret = uuid.New()
 
@@ -103,6 +105,7 @@ type rawConfig struct {
 	UsernameHeader *string
 	GroupsHeader   *string
 	Timeout        *int
+	LogRequests    *bool
 }
 
 func parseRawConfig() *rawConfig {
@@ -118,6 +121,7 @@ func parseRawConfig() *rawConfig {
 		UsernameHeader: flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into"),
 		GroupsHeader:   flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into"),
 		Timeout:        flag.Int("timeout", 10, "Read/write timeout"),
+		LogRequests:    flag.Bool("log-requests", false, "log all requests to standard error"),
 	}
 	flag.Parse()
 	return c

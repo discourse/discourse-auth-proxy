@@ -43,6 +43,10 @@ func main() {
 
 	handler := authProxyHandler(proxy, config)
 
+	if config.LogRequests {
+		handler = logHandler(handler)
+	}
+
 	server := &http.Server{
 		Addr:           config.ListenAddr,
 		Handler:        handler,
