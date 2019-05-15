@@ -38,7 +38,7 @@ func main() {
 	}
 
 	dnssrv := httpproxy.NewDNSSRVBackend(config.OriginURL)
-	go dnssrv.Lookup(context.Background(), 50*time.Second, 10*time.Second, 5*time.Minute)
+	go dnssrv.Lookup(context.Background(), 50*time.Second, 10*time.Second, config.SRVAbandonAfter)
 	proxy := &httputil.ReverseProxy{Director: dnssrv.Director}
 
 	handler := authProxyHandler(proxy, config)

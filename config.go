@@ -11,21 +11,22 @@ import (
 )
 
 type Config struct {
-	OriginURL      *url.URL
-	ProxyURL       *url.URL
-	ProxyURLString string // memoised - derives from ProxyURL
-	ListenAddr     string
-	SSOURL         *url.URL
-	SSOURLString   string // memoised - derives from SSOURL
-	SSOSecret      string
-	CookieSecret   string
-	AllowAll       bool
-	BasicAuth      string
-	Whitelist      string
-	UsernameHeader string
-	GroupsHeader   string
-	Timeout        time.Duration
-	LogRequests    bool
+	OriginURL       *url.URL
+	ProxyURL        *url.URL
+	ProxyURLString  string // memoised - derives from ProxyURL
+	ListenAddr      string
+	SSOURL          *url.URL
+	SSOURLString    string // memoised - derives from SSOURL
+	SSOSecret       string
+	CookieSecret    string
+	AllowAll        bool
+	BasicAuth       string
+	Whitelist       string
+	UsernameHeader  string
+	GroupsHeader    string
+	Timeout         time.Duration
+	SRVAbandonAfter time.Duration
+	LogRequests     bool
 }
 
 func ParseConfig() (*Config, error) {
@@ -46,6 +47,9 @@ func ParseConfig() (*Config, error) {
 	}
 	if *rc.SSOSecret == "" {
 		return nil, missing("sso-secret")
+	}
+	if *rc.Timeout < 1 {
+		return nil, fmt.Errorf("timeout must be 1 (second) or longer")
 	}
 
 	c := &Config{}
@@ -86,6 +90,11 @@ func ParseConfig() (*Config, error) {
 	c.UsernameHeader = *rc.UsernameHeader
 	c.GroupsHeader = *rc.GroupsHeader
 	c.Timeout = time.Duration(*rc.Timeout) * time.Second
+	if *rc.SRVAbandonAfter < 1 {
+		c.SRVAbandonAfter = 0
+	} else {
+		c.SRVAbandonAfter = time.Duration(*rc.SRVAbandonAfter) * time.Second
+	}
 	c.LogRequests = *rc.LogRequests
 
 	c.CookieSecret = uuid.New()
@@ -94,34 +103,36 @@ func ParseConfig() (*Config, error) {
 }
 
 type rawConfig struct {
-	OriginURL      *string
-	ProxyURL       *string
-	ListenURL      *string // Not actually a URL.  This is a TCP socket address, i.e.: 'host:port'.
-	SSOURL         *string
-	SSOSecret      *string
-	AllowAll       *bool
-	BasicAuth      *string
-	Whitelist      *string
-	UsernameHeader *string
-	GroupsHeader   *string
-	Timeout        *int
-	LogRequests    *bool
+	OriginURL       *string
+	ProxyURL        *string
+	ListenURL       *string // Not actually a URL.  This is a TCP socket address, i.e.: 'host:port'.
+	SSOURL          *string
+	SSOSecret       *string
+	AllowAll        *bool
+	BasicAuth       *string
+	Whitelist       *string
+	UsernameHeader  *string
+	GroupsHeader    *string
+	Timeout         *int
+	SRVAbandonAfter *int
+	LogRequests     *bool
 }
 
 func parseRawConfig() *rawConfig {
 	c := &rawConfig{
-		OriginURL:      flag.String("origin-url", "", "origin to proxy eg: http://localhost:2002"),
-		ProxyURL:       flag.String("proxy-url", "", "outer url of this host eg: http://secrets.example.com"),
-		ListenURL:      flag.String("listen-url", "", "url to listen on eg: localhost:2001. leave blank to set equal to proxy-url"),
-		SSOURL:         flag.String("sso-url", "", "SSO endpoint eg: http://discourse.forum.com"),
-		SSOSecret:      flag.String("sso-secret", "", "SSO secret for origin"),
-		AllowAll:       flag.Bool("allow-all", false, "allow all discourse users (default: admin users only)"),
-		BasicAuth:      flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly"),
-		Whitelist:      flag.String("whitelist", "", "Path which does not require authorization"),
-		UsernameHeader: flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into"),
-		GroupsHeader:   flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into"),
-		Timeout:        flag.Int("timeout", 10, "Read/write timeout"),
-		LogRequests:    flag.Bool("log-requests", false, "log all requests to standard error"),
+		OriginURL:       flag.String("origin-url", "", "Origin to proxy.  e.g.: http://localhost:2002"),
+		ProxyURL:        flag.String("proxy-url", "", "Outer URL of this host.  e.g.: http://secrets.example.com"),
+		ListenURL:       flag.String("listen-url", "", "Address on which to listen.  Leave blank to derive a value from proxy-url.  e.g.: localhost:2001"),
+		SSOURL:          flag.String("sso-url", "", "SSO endpoint.  e.g.: http://discourse.forum.com"),
+		SSOSecret:       flag.String("sso-secret", "", "SSO secret for origin"),
+		AllowAll:        flag.Bool("allow-all", false, "Allow all discourse users (default: admin users only)"),
+		BasicAuth:       flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly"),
+		Whitelist:       flag.String("whitelist", "", "Path which does not require authorization"),
+		UsernameHeader:  flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into"),
+		GroupsHeader:    flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into"),
+		Timeout:         flag.Int("timeout", 10, "Read/write timeout (seconds)"),
+		SRVAbandonAfter: flag.Int("dns-srv-abandon-after", 600, "Abandon DNS SRV discovery if origin RRs do not appear within this time (seconds).  When negative, attempt SRV lookups indefinitely."),
+		LogRequests:     flag.Bool("log-requests", false, "Log all requests to standard error"),
 	}
 	flag.Parse()
 	return c
