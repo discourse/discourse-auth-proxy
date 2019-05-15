@@ -27,70 +27,70 @@ var nonceCache = lru.New(20)
 var nonceMutex = &sync.Mutex{}
 
 type Config struct {
-	ListenUriPtr      *string
-	ProxyUriPtr       *string
-	OriginUriPtr      *string
-	SsoSecretPtr      *string
-	SsoUriPtr         *string
-	BasicAuthPtr      *string
-	UsernameHeaderPtr *string
-	GroupsHeaderPtr   *string
-	TimeoutPtr        *int
-	CookieSecret      string
-	AllowAllPtr       *bool
-	WhitelistPtr      *string
+	ListenUri      *string
+	ProxyUri       *string
+	OriginUri      *string
+	SsoSecret      *string
+	SsoUri         *string
+	BasicAuth      *string
+	UsernameHeader *string
+	GroupsHeader   *string
+	Timeout        *int
+	CookieSecret   string
+	AllowAll       *bool
+	Whitelist      *string
 }
 
 func main() {
 	config := new(Config)
 
-	config.ListenUriPtr = flag.String("listen-url", "", "uri to listen on eg: localhost:2001. leave blank to set equal to proxy-url")
-	config.ProxyUriPtr = flag.String("proxy-url", "", "outer url of this host eg: http://secrets.example.com")
-	config.OriginUriPtr = flag.String("origin-url", "", "origin to proxy eg: http://localhost:2002")
-	config.SsoSecretPtr = flag.String("sso-secret", "", "SSO secret for origin")
-	config.SsoUriPtr = flag.String("sso-url", "", "SSO endpoint eg: http://discourse.forum.com")
-	config.AllowAllPtr = flag.Bool("allow-all", false, "allow all discourse users (default: admin users only)")
-	config.BasicAuthPtr = flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly")
-	config.UsernameHeaderPtr = flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into")
-	config.GroupsHeaderPtr = flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into")
-	config.TimeoutPtr = flag.Int("timeout", 10, "Read/write timeout")
-	config.WhitelistPtr = flag.String("whitelist", "", "Path which does not require authorization")
+	config.ListenUri = flag.String("listen-url", "", "uri to listen on eg: localhost:2001. leave blank to set equal to proxy-url")
+	config.ProxyUri = flag.String("proxy-url", "", "outer url of this host eg: http://secrets.example.com")
+	config.OriginUri = flag.String("origin-url", "", "origin to proxy eg: http://localhost:2002")
+	config.SsoSecret = flag.String("sso-secret", "", "SSO secret for origin")
+	config.SsoUri = flag.String("sso-url", "", "SSO endpoint eg: http://discourse.forum.com")
+	config.AllowAll = flag.Bool("allow-all", false, "allow all discourse users (default: admin users only)")
+	config.BasicAuth = flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly")
+	config.UsernameHeader = flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into")
+	config.GroupsHeader = flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into")
+	config.Timeout = flag.Int("timeout", 10, "Read/write timeout")
+	config.Whitelist = flag.String("whitelist", "", "Path which does not require authorization")
 
 	flag.Parse()
 
-	originUrl, err := url.Parse(*config.OriginUriPtr)
+	originUrl, err := url.Parse(*config.OriginUri)
 
 	if err != nil {
 		flag.Usage()
 		log.Fatal("invalid origin url")
 	}
 
-	_, err = url.Parse(*config.SsoUriPtr)
+	_, err = url.Parse(*config.SsoUri)
 
 	if err != nil {
 		flag.Usage()
 		log.Fatal("invalid sso url, should point at Discourse site with enable sso")
 	}
 
-	proxyUrl, err2 := url.Parse(*config.ProxyUriPtr)
+	proxyUrl, err2 := url.Parse(*config.ProxyUri)
 
 	if err2 != nil {
 		flag.Usage()
 		log.Fatal("invalid proxy uri")
 	}
 
-	if *config.ListenUriPtr == "" {
+	if *config.ListenUri == "" {
 		log.Println("Defaulting to listening on the proxy url")
-		*config.ListenUriPtr = proxyUrl.Host
+		*config.ListenUri = proxyUrl.Host
 	}
 
-	if *config.ProxyUriPtr == "" || *config.OriginUriPtr == "" || *config.SsoSecretPtr == "" || *config.SsoUriPtr == "" || *config.ListenUriPtr == "" {
+	if *config.ProxyUri == "" || *config.OriginUri == "" || *config.SsoSecret == "" || *config.SsoUri == "" || *config.ListenUri == "" {
 		flag.Usage()
 		os.Exit(1)
 		return
 	}
 
-	if *config.BasicAuthPtr != "" {
+	if *config.BasicAuth != "" {
 		log.Println("Enabling basic auth support")
 	}
 
@@ -103,10 +103,10 @@ func main() {
 	handler := authProxyHandler(proxy, config)
 
 	server := &http.Server{
-		Addr:           *config.ListenUriPtr,
+		Addr:           *config.ListenUri,
 		Handler:        handler,
-		ReadTimeout:    time.Duration(*config.TimeoutPtr) * time.Second,
-		WriteTimeout:   time.Duration(*config.TimeoutPtr) * time.Second,
+		ReadTimeout:    time.Duration(*config.Timeout) * time.Second,
+		WriteTimeout:   time.Duration(*config.Timeout) * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
@@ -126,7 +126,7 @@ func authProxyHandler(handler http.Handler, config *Config) http.Handler {
 }
 
 func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.ResponseWriter, config *Config) bool {
-	if *config.BasicAuthPtr == "" {
+	if *config.BasicAuth == "" {
 		// Can't auth if we don't have anything to auth against
 		return false
 	}
@@ -140,13 +140,13 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 		log.Println("Received request with basic auth creds")
 		b_creds, _ := base64.StdEncoding.DecodeString(auth_header[6:])
 		creds := string(b_creds)
-		if creds == *config.BasicAuthPtr {
+		if creds == *config.BasicAuth {
 			colon_idx := strings.Index(creds, ":")
 			if colon_idx == -1 {
 				return false
 			}
 			username := creds[0:colon_idx]
-			r.Header.Set(*config.UsernameHeaderPtr, username)
+			r.Header.Set(*config.UsernameHeader, username)
 			r.Header.Del("Authorization")
 			log.Printf("Accepted basic auth creds for %s\n", username)
 			handler.ServeHTTP(w, r)
@@ -160,7 +160,7 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 }
 
 func checkWhitelist(handler http.Handler, r *http.Request, w http.ResponseWriter, config *Config) bool {
-	if r.URL.Path == *(config.WhitelistPtr) {
+	if r.URL.Path == *(config.Whitelist) {
 		handler.ServeHTTP(w, r)
 		return true
 	}
@@ -177,8 +177,8 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 	}
 
 	if err == nil {
-		r.Header.Set(*config.UsernameHeaderPtr, username)
-		r.Header.Set(*config.GroupsHeaderPtr, groups)
+		r.Header.Set(*config.UsernameHeader, username)
+		r.Header.Set(*config.GroupsHeader, groups)
 		handler.ServeHTTP(w, r)
 		return
 	}
@@ -188,7 +188,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 	sig := query.Get("sig")
 
 	if len(sso) == 0 {
-		url := *config.SsoUriPtr + "/session/sso_provider?" + sso_payload(*config.SsoSecretPtr, *config.ProxyUriPtr, r.URL.String())
+		url := *config.SsoUri + "/session/sso_provider?" + sso_payload(*config.SsoSecret, *config.ProxyUri, r.URL.String())
 		http.Redirect(w, r, url, 302)
 	} else {
 		decoded, _ := base64.StdEncoding.DecodeString(sso)
@@ -202,8 +202,8 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 
 		groupsArray := strings.Split(groups[0], ",")
 
-		if len(nonce) > 0 && len(admin) > 0 && len(username) > 0 && (admin[0] == "true" || *config.AllowAllPtr) {
-			returnUrl, err := getReturnUrl(*config.SsoSecretPtr, sso, sig, nonce[0])
+		if len(nonce) > 0 && len(admin) > 0 && len(username) > 0 && (admin[0] == "true" || *config.AllowAll) {
+			returnUrl, err := getReturnUrl(*config.SsoSecret, sso, sig, nonce[0])
 
 			if err != nil {
 				fmt.Fprintf(w, "Invalid request")
