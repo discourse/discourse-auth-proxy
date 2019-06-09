@@ -8,9 +8,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -47,15 +49,31 @@ func main() {
 		handler = logHandler(handler)
 	}
 
+	var listener net.Listener
+	var err error
+
+	if strings.Index(config.ListenAddr, "unix:") == 0 {
+		file := strings.Replace(config.ListenAddr, "unix:", "", 1)
+		if _, err = os.Stat(file); err == nil {
+			os.Remove(file)
+		}
+		listener, err = net.Listen("unix", strings.Replace(config.ListenAddr, "unix:", "", 1))
+	} else {
+		listener, err = net.Listen("tcp", config.ListenAddr)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	server := &http.Server{
-		Addr:           config.ListenAddr,
 		Handler:        handler,
 		ReadTimeout:    config.Timeout,
 		WriteTimeout:   config.Timeout,
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	log.Fatal(server.ListenAndServe())
+	log.Fatal(server.Serve(listener))
 }
 
 func authProxyHandler(handler http.Handler, config *Config) http.Handler {
