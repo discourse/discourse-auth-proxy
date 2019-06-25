@@ -247,7 +247,7 @@ func parseCookie(data, secret string) (username string, groups string, err error
 }
 
 func sso_payload(secret string, return_sso_url string, returnUrl string) string {
-	result := "return_sso_url=" + return_sso_url + "&nonce=" + addNonce(returnUrl)
+	result := "return_sso_url=" + return_sso_url + returnUrl + "&nonce=" + addNonce(returnUrl)
 	payload := base64.StdEncoding.EncodeToString([]byte(result))
 
 	return "sso=" + payload + "&sig=" + ComputeHmac256(payload, secret)
