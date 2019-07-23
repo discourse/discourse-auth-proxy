@@ -1,9 +1,32 @@
 package main
 
 import (
+	"io"
 	"log"
 	"net/http"
+	"time"
+
+	"golang.org/x/time/rate"
 )
+
+type rateLimitedLogger struct {
+	logger  *log.Logger
+	limiter *rate.Limiter
+}
+
+func newRateLimitedLogger(out io.Writer, prefix string, flag int) *rateLimitedLogger {
+	return &rateLimitedLogger{
+		logger:  log.New(out, prefix, flag),
+		limiter: rate.NewLimiter(rate.Every(250*time.Millisecond), 30),
+	}
+}
+
+func (l *rateLimitedLogger) Printf(format string, v ...interface{}) {
+	if !l.limiter.Allow() {
+		return
+	}
+	l.logger.Printf(format, v...)
+}
 
 type loggableResponseWriter struct {
 	StatusCode int
