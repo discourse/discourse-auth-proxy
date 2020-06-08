@@ -16,6 +16,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/golang/groupcache/lru"
@@ -226,7 +227,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		})
 
 		// works around weird safari stuff
-		fmt.Fprintf(w, "<html><head></head><body><script>window.location = '%v'</script></body>", returnUrl)
+		fmt.Fprintf(w, "<html><head></head><body><script>window.location = '%v'</script></body>", template.JSEscapeString(returnUrl))
 	}
 }
 
