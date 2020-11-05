@@ -169,7 +169,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 	sig := query.Get("sig")
 
 	if len(sso) == 0 {
-		url := config.SSOURLString + "/session/sso_provider?" + sso_payload(config.SSOSecret, config.ProxyURLString, r.URL.String())
+		url := config.SSOURLString + "/session/sso_provider?" + sso_payload(config.SSOSecret, config.ProxyURLString, r.URL.String()).Encode()
 		http.Redirect(w, r, url, 302)
 	} else {
 		decoded, err := base64.StdEncoding.DecodeString(sso)
@@ -285,12 +285,14 @@ func parseCookie(data, secret string) (username string, groups string, err error
 
 // sso_payload takes the SSO secret and the two redirection URLs, stores the
 // returnUrl in the nonce cache, and returns a partial URL querystring.
-func sso_payload(secret string, return_sso_url string, returnUrl string) string {
+func sso_payload(secret string, return_sso_url string, returnUrl string) url.Values {
 	result := "return_sso_url=" + url.QueryEscape(return_sso_url) + url.QueryEscape(returnUrl) + "&nonce=" + url.QueryEscape(addNonce(returnUrl))
 	payload := base64.StdEncoding.EncodeToString([]byte(result))
 
-	// payload, computeHMAC already query-safe
-	return "sso=" + payload + "&sig=" + computeHMAC(payload, secret)
+	return url.Values{
+		"sso": []string{payload},
+		"sig": []string{computeHMAC(payload, secret)},
+	}
 }
 
 // addNonce takes a return URL and returns a nonce associated to that URL.
