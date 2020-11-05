@@ -1,11 +1,22 @@
-FROM golang:alpine as builder
-RUN apk add git
-WORKDIR /go/src/github.com/discourse/discourse-auth-proxy
+FROM golang:alpine AS builder
+
+RUN apk -v --no-progress --no-cache add git
+
+WORKDIR /root/src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY internal ./internal/
 COPY *.go ./
-RUN go get && go build
+RUN go build .
+
 
 FROM alpine:latest
-COPY --from=builder /go/bin/discourse-auth-proxy /bin/
-COPY start.sh /bin/start.sh
-CMD ["/bin/start.sh"]
+
+COPY --from=builder \
+  /root/src/discourse-auth-proxy \
+  /usr/local/bin/discourse-auth-proxy
+COPY docker-entrypoint /usr/local/bin/docker-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint"]
