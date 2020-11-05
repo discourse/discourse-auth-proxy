@@ -251,13 +251,6 @@ func getReturnUrl(secret string, payload string, sig string, nonce string) (retu
 	return returnUrl, err
 }
 
-func sameHost(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Host = r.URL.Host
-		handler.ServeHTTP(w, r)
-	})
-}
-
 func signCookie(data, secret string) string {
 	return data + "," + computeHMAC(data, secret)
 }
