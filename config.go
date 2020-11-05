@@ -56,14 +56,14 @@ func ParseConfig() (*Config, error) {
 	{
 		u, err := url.Parse(*rc.OriginURL)
 		if err != nil {
-			return nil, fmt.Errorf("invalid origin URL: %s", rc.OriginURL)
+			return nil, fmt.Errorf("invalid origin URL: %s", *rc.OriginURL)
 		}
 		c.OriginURL = u
 	}
 	{
 		u, err := url.Parse(*rc.ProxyURL)
 		if err != nil {
-			return nil, fmt.Errorf("invalid proxy URL: %s", rc.ProxyURL)
+			return nil, fmt.Errorf("invalid proxy URL: %s", *rc.ProxyURL)
 		}
 		c.ProxyURL = u
 		c.ProxyURLString = u.String()
@@ -71,7 +71,7 @@ func ParseConfig() (*Config, error) {
 	{
 		u, err := url.Parse(*rc.SSOURL)
 		if err != nil {
-			return nil, fmt.Errorf("invalid SSO URL - should point at Discourse site with enable sso: %s", rc.SSOURL)
+			return nil, fmt.Errorf("invalid SSO URL - should point at Discourse site with enable sso: %s", *rc.SSOURL)
 		}
 		c.SSOURL = u
 		c.SSOURLString = u.String()
