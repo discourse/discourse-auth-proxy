@@ -11,4 +11,4 @@ push: build
 
 .PHONY: build
 build:
-	docker build -t ${IMAGE}:${TAG} .
+	docker build --pull -t ${IMAGE}:${TAG} .
