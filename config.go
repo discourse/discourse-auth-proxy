@@ -20,6 +20,7 @@ type Config struct {
 	SSOSecret       string
 	CookieSecret    string
 	AllowAll        bool
+	AllowGroups     StringSet
 	BasicAuth       string
 	Whitelist       string
 	UsernameHeader  string
@@ -85,6 +86,7 @@ func ParseConfig() (*Config, error) {
 
 	c.SSOSecret = *rc.SSOSecret
 	c.AllowAll = *rc.AllowAll
+	c.AllowGroups = NewStringSet(*rc.AllowGroups)
 	c.BasicAuth = *rc.BasicAuth
 	c.Whitelist = *rc.Whitelist
 	c.UsernameHeader = *rc.UsernameHeader
@@ -109,6 +111,7 @@ type rawConfig struct {
 	SSOURL          *string
 	SSOSecret       *string
 	AllowAll        *bool
+	AllowGroups     *string
 	BasicAuth       *string
 	Whitelist       *string
 	UsernameHeader  *string
@@ -126,6 +129,7 @@ func parseRawConfig() *rawConfig {
 		SSOURL:          flag.String("sso-url", "", "SSO endpoint.  e.g.: http://discourse.forum.com"),
 		SSOSecret:       flag.String("sso-secret", "", "SSO secret for origin"),
 		AllowAll:        flag.Bool("allow-all", false, "Allow all discourse users (default: admin users only)"),
+		AllowGroups:     flag.String("allow-groups", "", "Allow users belonging to the specified groups, comma delimited (default: no groups are allowed)"),
 		BasicAuth:       flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly"),
 		Whitelist:       flag.String("whitelist", "", "Path which does not require authorization"),
 		UsernameHeader:  flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into"),

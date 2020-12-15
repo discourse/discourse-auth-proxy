@@ -52,7 +52,7 @@ func main() {
 	go dnssrv.Lookup(context.Background(), 50*time.Second, 10*time.Second, config.SRVAbandonAfter)
 	proxy := &httputil.ReverseProxy{Director: dnssrv.Director}
 
-	handler := authProxyHandler(proxy, config)
+	handler := authProxyHandler(proxy)
 
 	if config.LogRequests {
 		handler = logHandler(handler)
@@ -85,7 +85,7 @@ func main() {
 	log.Fatal(server.Serve(listener))
 }
 
-func authProxyHandler(handler http.Handler, config *Config) http.Handler {
+func authProxyHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if checkWhitelist(handler, r, w) {
 			return
@@ -185,10 +185,10 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		}
 
 		var (
-			username    = parsedQuery.Get("username")
-			admin       = parsedQuery.Get("admin")
-			nonce       = parsedQuery.Get("nonce")
-			groupsArray = strings.Split(parsedQuery.Get("groups"), ",")
+			username = parsedQuery.Get("username")
+			admin    = parsedQuery.Get("admin")
+			nonce    = parsedQuery.Get("nonce")
+			groups   = NewStringSet(parsedQuery.Get("groups"))
 		)
 
 		if len(nonce) == 0 {
@@ -204,8 +204,12 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 			return
 		}
 		if !(config.AllowAll || admin == "true") {
-			writeHttpError(http.StatusForbidden)
-			return
+			allowed := config.AllowGroups.ContainsAny(groups)
+
+			if !allowed {
+				writeHttpError(http.StatusForbidden)
+				return
+			}
 		}
 
 		returnUrl, err := getReturnUrl(config.SSOSecret, sso, sig, nonce)
@@ -217,7 +221,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		// we have a valid auth
 		expiration := time.Now().Add(reauthorizeInterval)
 
-		cookieData := strings.Join([]string{username, strings.Join(groupsArray, "|")}, ",")
+		cookieData := strings.Join([]string{username, strings.Join(groups, "|")}, ",")
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
 			Value:    signCookie(cookieData, config.CookieSecret),
@@ -232,6 +236,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 }
 
 func getReturnUrl(secret string, payload string, sig string, nonce string) (returnUrl string, err error) {
+
 	nonceMutex.Lock()
 	value, ok := nonceCache.Get(nonce)
 	nonceMutex.Unlock()
