@@ -13,7 +13,7 @@ Usage of ./discourse-auth-proxy:
   -origin-url="": origin to proxy eg: http://localhost:2002
   -proxy-url="": outer url of this host eg: http://secrets.example.com
   -sso-secret="": SSO secret for origin
-  -sso-url="": SSO endpoint eg: http://discourse.forum.com
+  -sso-url="": SSO endpoint eg: http://discourse.example.com
   -allow-all: don't restrict access to "admin" users on the SSO endpoint
   -timeout="10": Read/Write timeout
 ```
