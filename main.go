@@ -19,9 +19,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/golang/groupcache/lru"
 	"github.com/pborman/uuid"
-	"github.com/go-redis/redis/v8"
 
 	"github.com/discourse/discourse-auth-proxy/internal/httpproxy"
 )
@@ -323,11 +323,11 @@ func computeHMAC(message string, secret string) string {
 func setupStorage(config *Config) {
 	if config.RedisAddress != "" {
 		client := redis.NewClient(&redis.Options{
-			Addr: config.RedisAddress,
+			Addr:     config.RedisAddress,
 			Password: config.RedisPassword,
 		})
 		storageInstance = &RedisStore{
-			Redis: client,
+			Redis:     client,
 			Namespace: "_discourse-auth-proxy_",
 		}
 	} else {

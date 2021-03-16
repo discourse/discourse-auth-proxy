@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
-	"testing"
-	"sync"
 	"os"
+	"strconv"
+	"sync"
+	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/golang/groupcache/lru"
 	"github.com/go-redis/redis/v8"
+	"github.com/golang/groupcache/lru"
+	"github.com/stretchr/testify/assert"
 )
 
 type SSOOptions struct {
@@ -45,7 +45,7 @@ func NewMemoryStore() *MemoryStore {
 
 var redisStore = NewRedisStore()
 var memoryStore = NewMemoryStore()
-var stores = [2]CacheStore{ memoryStore, redisStore }
+var stores = [2]CacheStore{memoryStore, redisStore}
 
 func mustParseURL(s string) *url.URL {
 	u, err := url.Parse(s)
@@ -337,11 +337,11 @@ func TestGetSetNXCookieSecretIfRedis(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	for _, s := range stores {
-	  err := s.Clear()
-	  if err != nil {
-		  fmt.Printf("%s", err)
-		  os.Exit(1)
-	  }
+		err := s.Clear()
+		if err != nil {
+			fmt.Printf("%s", err)
+			os.Exit(1)
+		}
 	}
 	code := m.Run()
 	os.Exit(code)

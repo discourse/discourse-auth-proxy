@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/groupcache/lru"
 	"github.com/go-redis/redis/v8"
+	"github.com/golang/groupcache/lru"
 	"github.com/pborman/uuid"
 )
 
@@ -55,12 +55,12 @@ func (store *MemoryStore) Clear() error {
 }
 
 type RedisStore struct {
-	Redis *redis.Client
+	Redis     *redis.Client
 	Namespace string
 }
 
 func (store *RedisStore) AddNonce(nonce string, val string) error {
-	err := store.Redis.SetEX(bgCtx, store.Prefix(nonce), val, 600 * time.Second).Err()
+	err := store.Redis.SetEX(bgCtx, store.Prefix(nonce), val, 600*time.Second).Err()
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (store *RedisStore) GetAndDeleteNonce(nonce string) (val string, err error)
 
 // used in tests only
 func (store *RedisStore) Clear() error {
-	keys, err := store.Redis.Keys(bgCtx, store.Namespace + "*").Result()
+	keys, err := store.Redis.Keys(bgCtx, store.Namespace+"*").Result()
 	if err != nil {
 		return err
 	}
