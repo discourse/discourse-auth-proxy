@@ -54,3 +54,10 @@ docker run discourse/auth-proxy
 ```
 
 Running will display configuration instructions
+
+Development
+===
+
+1. Install Golang: https://golang.org/doc/install.
+2. You need a Redis server running locally and listening on `127.0.0.1:6379`. If you're on Ubuntu, you can install Redis with this command: `sudo apt-get install redis-server`.
+3. Run `go test` to run the tests suite.
