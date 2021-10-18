@@ -1,4 +1,4 @@
-FROM golang:1.16.5-alpine3.13 AS builder
+FROM golang:1-alpine3.14 AS builder
 
 RUN apk -v --no-progress --no-cache add git
 
@@ -9,10 +9,17 @@ RUN go mod download
 
 COPY internal ./internal/
 COPY *.go ./
-RUN go build .
+RUN CGO_ENABLED=0 go build .
 
 
-FROM alpine:latest
+FROM debian:bullseye-slim
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade \
+  && DEBIAN_FRONTEND=noninteractive apt-get clean \
+  && ( find /var/lib/apt/lists -mindepth 1 -maxdepth 1 -delete || true ) \
+  && ( find /var/tmp -mindepth 1 -maxdepth 1 -delete || true ) \
+  && ( find /tmp -mindepth 1 -maxdepth 1 -delete || true )
 
 COPY --from=builder \
   /root/src/discourse-auth-proxy \
