@@ -17,9 +17,9 @@ FROM debian:bullseye-slim
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade \
   && DEBIAN_FRONTEND=noninteractive apt-get clean \
-  && ( find /var/lib/apt/lists -mindepth 1 -maxdepth 1 -delete || true ) \
-  && ( find /var/tmp -mindepth 1 -maxdepth 1 -delete || true ) \
-  && ( find /tmp -mindepth 1 -maxdepth 1 -delete || true )
+  && ( find /var/lib/apt/lists -mindepth 1 -delete || true ) \
+  && ( find /var/tmp -mindepth 1 -delete || true ) \
+  && ( find /tmp -mindepth 1 -delete || true )
 
 COPY --from=builder \
   /root/src/discourse-auth-proxy \
