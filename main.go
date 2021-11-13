@@ -19,6 +19,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/golang/groupcache/lru"
 	"github.com/pborman/uuid"
 
@@ -30,8 +31,7 @@ var (
 
 	config *Config
 
-	nonceCache = lru.New(20)
-	nonceMutex = &sync.Mutex{}
+	storageInstance CacheStore
 )
 
 const (
@@ -47,6 +47,9 @@ func main() {
 			usage(err)
 		}
 	}
+
+	setupStorage(config)
+	GetSetNXCookieSecretIfRedis(config)
 
 	dnssrv := httpproxy.NewDNSSRVBackend(config.OriginURL)
 	go dnssrv.Lookup(context.Background(), 50*time.Second, 10*time.Second, config.SRVAbandonAfter)
@@ -169,7 +172,12 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 	sig := query.Get("sig")
 
 	if len(sso) == 0 {
-		url := config.SSOURLString + "/session/sso_provider?" + sso_payload(config.SSOSecret, config.ProxyURLString, r.URL.String()).Encode()
+		payload, err := ssoPayload(config.SSOSecret, config.ProxyURLString, r.URL.String())
+		if err != nil {
+			fail("An error occurred when generating SSO payload: %s", err)
+			return
+		}
+		url := config.SSOURLString + "/session/sso_provider?" + payload.Encode()
 		http.Redirect(w, r, url, 302)
 	} else {
 		decoded, err := base64.StdEncoding.DecodeString(sso)
@@ -236,20 +244,10 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 }
 
 func getReturnUrl(secret string, payload string, sig string, nonce string) (returnUrl string, err error) {
-
-	nonceMutex.Lock()
-	value, ok := nonceCache.Get(nonce)
-	nonceMutex.Unlock()
-	if !ok {
-		err = fmt.Errorf("nonce not found: %s", nonce)
-		return
+	returnUrl, err = storageInstance.GetAndDeleteNonce(nonce)
+	if err != nil {
+		return "", err
 	}
-
-	returnUrl = value.(string)
-	nonceMutex.Lock()
-	nonceCache.Remove(nonce)
-	nonceMutex.Unlock()
-
 	if computeHMAC(payload, secret) != sig {
 		err = errors.New("signature is invalid")
 	}
@@ -288,25 +286,30 @@ func parseCookie(data, secret string) (username string, groups string, err error
 	return
 }
 
-// sso_payload takes the SSO secret and the two redirection URLs, stores the
+// ssoPayload takes the SSO secret and the two redirection URLs, stores the
 // returnUrl in the nonce cache, and returns a partial URL querystring.
-func sso_payload(secret string, return_sso_url string, returnUrl string) url.Values {
-	result := "return_sso_url=" + url.QueryEscape(return_sso_url) + url.QueryEscape(returnUrl) + "&nonce=" + url.QueryEscape(addNonce(returnUrl))
+func ssoPayload(secret string, return_sso_url string, returnUrl string) (url.Values, error) {
+	guid, err := addNonce(returnUrl)
+	if err != nil {
+		return url.Values{}, err
+	}
+	result := "return_sso_url=" + url.QueryEscape(return_sso_url) + url.QueryEscape(returnUrl) + "&nonce=" + url.QueryEscape(guid)
 	payload := base64.StdEncoding.EncodeToString([]byte(result))
 
 	return url.Values{
 		"sso": []string{payload},
 		"sig": []string{computeHMAC(payload, secret)},
-	}
+	}, nil
 }
 
 // addNonce takes a return URL and returns a nonce associated to that URL.
-func addNonce(returnUrl string) string {
+func addNonce(returnUrl string) (string, error) {
 	guid := uuid.New()
-	nonceMutex.Lock()
-	nonceCache.Add(guid, returnUrl)
-	nonceMutex.Unlock()
-	return guid
+	err := storageInstance.AddNonce(guid, returnUrl)
+	if err != nil {
+		return "", err
+	}
+	return guid, nil
 }
 
 // computeHMAC implements the Discourse SSO protocol, returning a hex string.
@@ -315,4 +318,34 @@ func computeHMAC(message string, secret string) string {
 	h := hmac.New(sha256.New, key)
 	h.Write([]byte(message))
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func setupStorage(config *Config) {
+	if config.RedisAddress != "" {
+		client := redis.NewClient(&redis.Options{
+			Addr:     config.RedisAddress,
+			Password: config.RedisPassword,
+		})
+		storageInstance = &RedisStore{
+			Redis:     client,
+			Namespace: "_discourse-auth-proxy_",
+		}
+	} else {
+		storageInstance = &MemoryStore{
+			Mutex: &sync.Mutex{},
+			Cache: lru.New(20),
+		}
+	}
+}
+
+func GetSetNXCookieSecretIfRedis(config *Config) {
+	redisStore, ok := storageInstance.(*RedisStore)
+	if ok {
+		secret, err := redisStore.GetSetNXCookieSecret()
+		if err != nil {
+			fmt.Printf("Failed to get cookie secret from redis. Error: %s\n", err)
+		} else {
+			config.CookieSecret = secret
+		}
+	}
 }

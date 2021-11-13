@@ -28,6 +28,8 @@ type Config struct {
 	Timeout         time.Duration
 	SRVAbandonAfter time.Duration
 	LogRequests     bool
+	RedisAddress    string
+	RedisPassword   string
 }
 
 func ParseConfig() (*Config, error) {
@@ -100,6 +102,8 @@ func ParseConfig() (*Config, error) {
 	c.LogRequests = *rc.LogRequests
 
 	c.CookieSecret = uuid.New()
+	c.RedisAddress = *rc.RedisAddress
+	c.RedisPassword = *rc.RedisPassword
 
 	return c, nil
 }
@@ -119,6 +123,8 @@ type rawConfig struct {
 	Timeout         *int
 	SRVAbandonAfter *int
 	LogRequests     *bool
+	RedisAddress    *string
+	RedisPassword   *string
 }
 
 func parseRawConfig() *rawConfig {
@@ -137,6 +143,8 @@ func parseRawConfig() *rawConfig {
 		Timeout:         flag.Int("timeout", 10, "Read/write timeout (seconds)"),
 		SRVAbandonAfter: flag.Int("dns-srv-abandon-after", 600, "Abandon DNS SRV discovery if origin RRs do not appear within this time (seconds).  When negative, attempt SRV lookups indefinitely."),
 		LogRequests:     flag.Bool("log-requests", false, "Log all requests to standard error"),
+		RedisAddress:    flag.String("redis-address", "", "Address of a Redis server which auth-proxy will use to store nonces. e.g.: 127.0.0.1:6379. Optional."),
+		RedisPassword:   flag.String("redis-password", "", "Password of the Redis server. Optional."),
 	}
 	flag.Parse()
 	return c
