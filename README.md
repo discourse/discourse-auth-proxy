@@ -54,3 +54,17 @@ docker run discourse/auth-proxy
 ```
 
 Running will display configuration instructions
+
+You may build an image using
+
+```
+make build
+```
+
+After building, you may publish it as a new release -- i.e. `latest` tag -- using
+
+```
+make release TAG=20220406.135620
+```
+
+(Replace with the actual built tag.)

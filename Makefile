@@ -12,3 +12,8 @@ push: build
 .PHONY: build
 build:
 	docker build --pull -t ${IMAGE}:${TAG} .
+
+.PHONY: release
+release:
+	docker tag ${IMAGE}:${TAG} ${IMAGE}:latest
+	docker push ${IMAGE}:latest
