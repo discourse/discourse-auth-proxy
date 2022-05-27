@@ -9,10 +9,10 @@ RUN go mod download
 
 COPY internal ./internal/
 COPY *.go ./
-RUN CGO_ENABLED=0 go build .
+RUN CGO_ENABLED=0 GOARCH=amd64 go build .
 
 
-FROM debian:bullseye-slim
+FROM --platform=linux/amd64 debian:bullseye-slim
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade \
