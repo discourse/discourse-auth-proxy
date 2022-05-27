@@ -1,4 +1,4 @@
-FROM golang:1-alpine3.14 AS builder
+FROM golang:1-alpine3.15 AS builder
 
 RUN apk -v --no-progress --no-cache add git
 
@@ -18,8 +18,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade \
   && DEBIAN_FRONTEND=noninteractive apt-get clean \
   && ( find /var/lib/apt/lists -mindepth 1 -delete || true ) \
-  && ( find /var/tmp -mindepth 1 -delete || true ) \
-  && ( find /tmp -mindepth 1 -delete || true )
+  && ( find /var/tmp           -mindepth 1 -delete || true ) \
+  && ( find /tmp               -mindepth 1 -delete || true )
 
 COPY --from=builder \
   /root/src/discourse-auth-proxy \
