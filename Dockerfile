@@ -1,8 +1,8 @@
-FROM golang:1-alpine3.15 AS builder
+FROM golang:1-alpine3.18 AS builder
 
 RUN apk -v --no-progress --no-cache add git
 
-WORKDIR /root/src
+WORKDIR /src
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -22,7 +22,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
   && ( find /tmp               -mindepth 1 -delete || true )
 
 COPY --from=builder \
-  /root/src/discourse-auth-proxy \
+  /src/discourse-auth-proxy \
   /usr/local/bin/discourse-auth-proxy
 COPY docker-entrypoint /usr/local/bin/docker-entrypoint
 
