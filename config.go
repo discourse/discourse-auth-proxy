@@ -23,6 +23,7 @@ type Config struct {
 	AllowGroups     StringSet
 	BasicAuth       string
 	Whitelist       string
+	WhitelistPrefix string
 	UsernameHeader  string
 	GroupsHeader    string
 	Timeout         time.Duration
@@ -89,6 +90,7 @@ func ParseConfig() (*Config, error) {
 	c.AllowGroups = NewStringSet(*rc.AllowGroups)
 	c.BasicAuth = *rc.BasicAuth
 	c.Whitelist = *rc.Whitelist
+	c.WhitelistPrefix = *rc.WhitelistPrefix
 	c.UsernameHeader = *rc.UsernameHeader
 	c.GroupsHeader = *rc.GroupsHeader
 	c.Timeout = time.Duration(*rc.Timeout) * time.Second
@@ -114,6 +116,7 @@ type rawConfig struct {
 	AllowGroups     *string
 	BasicAuth       *string
 	Whitelist       *string
+	WhitelistPrefix *string
 	UsernameHeader  *string
 	GroupsHeader    *string
 	Timeout         *int
@@ -132,6 +135,7 @@ func parseRawConfig() *rawConfig {
 		AllowGroups:     flag.String("allow-groups", "", "Allow users belonging to the specified groups, comma delimited (default: no groups are allowed)"),
 		BasicAuth:       flag.String("basic-auth", "", "HTTP Basic authentication credentials to let through directly"),
 		Whitelist:       flag.String("whitelist", "", "Path which does not require authorization"),
+		WhitelistPrefix: flag.String("whitelist-prefix", "", "Prefix for paths which do not require authorization"),
 		UsernameHeader:  flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into"),
 		GroupsHeader:    flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into"),
 		Timeout:         flag.Int("timeout", 10, "Read/write timeout (seconds)"),

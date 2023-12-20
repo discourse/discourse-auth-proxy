@@ -41,6 +41,7 @@ func NewTestConfig() Config {
 		AllowGroups:     NewStringSet(""),
 		BasicAuth:       "",
 		Whitelist:       "",
+		WhitelistPrefix: "",
 		UsernameHeader:  "username-header",
 		GroupsHeader:    "groups-header",
 		Timeout:         10,

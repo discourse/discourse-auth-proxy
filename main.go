@@ -129,11 +129,13 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 }
 
 func checkWhitelist(handler http.Handler, r *http.Request, w http.ResponseWriter) bool {
-	if config.Whitelist == "" {
+	if config.Whitelist == "" && config.WhitelistPrefix == "" {
 		return false
 	}
 
-	if r.URL.Path == config.Whitelist {
+	prefixAllowed := len(config.WhitelistPrefix) > 0 && strings.HasPrefix(r.URL.Path, config.WhitelistPrefix)
+
+	if r.URL.Path == config.Whitelist || prefixAllowed {
 		handler.ServeHTTP(w, r)
 		return true
 	}
