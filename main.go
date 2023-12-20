@@ -128,14 +128,22 @@ func checkAuthorizationHeader(handler http.Handler, r *http.Request, w http.Resp
 	return false
 }
 
-func checkWhitelist(handler http.Handler, r *http.Request, w http.ResponseWriter) bool {
-	if config.Whitelist == "" && config.WhitelistPrefix == "" {
+func allowedByWhiteList(c *Config, p string) bool {
+	if c.Whitelist == "" && c.WhitelistPrefix == "" {
 		return false
 	}
 
-	prefixAllowed := len(config.WhitelistPrefix) > 0 && strings.HasPrefix(r.URL.Path, config.WhitelistPrefix)
+	prefixAllowed := len(c.WhitelistPrefix) > 0 && strings.HasPrefix(p, c.WhitelistPrefix)
 
-	if r.URL.Path == config.Whitelist || prefixAllowed {
+	if p == c.Whitelist || prefixAllowed {
+		return true
+	}
+
+	return false
+}
+
+func checkWhitelist(handler http.Handler, r *http.Request, w http.ResponseWriter) bool {
+	if allowedByWhiteList(config, r.URL.Path) {
 		handler.ServeHTTP(w, r)
 		return true
 	}

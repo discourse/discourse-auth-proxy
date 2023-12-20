@@ -202,3 +202,27 @@ func TestValidPayload(t *testing.T) {
 	assert.Equal(t, username, "user")
 	assert.Equal(t, group, "group")
 }
+
+func TestNotWhitelistedPath(t *testing.T) {
+	c := NewTestConfig()
+	c.Whitelist = ""
+	res := allowedByWhiteList(&c, "/some_path")
+
+	assert.Equal(t, false, res)
+}
+
+func TestWhitelistedPath(t *testing.T) {
+	c := NewTestConfig()
+	c.Whitelist = "/some_path"
+	res := allowedByWhiteList(&c, "/some_path")
+
+	assert.Equal(t, true, res)
+}
+
+func TestWhitelistedPrefixPath(t *testing.T) {
+	c := NewTestConfig()
+	c.WhitelistPrefix = "/prefix/"
+	res := allowedByWhiteList(&c, "/prefix/some_path")
+
+	assert.Equal(t, true, res)
+}
