@@ -1,0 +1,166 @@
+# SECURITY
+# This is a public repository.  Mind what you write.
+# Do not accept modifications from people outside CDCK.
+# Seek infra security review if unsure.
+
+---
+var_sources:
+- name: xacco
+  type: vault
+  config:
+    url: http://127.0.0.1:8200
+    path_prefix: /aws-xacc-obfuscate
+    client_token: unused-but-some-value-required
+
+resource_types:
+- name: git-branches
+  type: registry-image
+  source:
+    repository:            practical-concourse/resource-types/git-branches
+    aws_access_key_id:     ((xacco:machine/concourse-ecr-pull/docker-registry.AWS_ACCESS_KEY_ID))
+    aws_secret_access_key: ((xacco:machine/concourse-ecr-pull/docker-registry.AWS_SECRET_ACCESS_KEY))
+    aws_session_token:     ((xacco:machine/concourse-ecr-pull/docker-registry.AWS_SESSION_TOKEN))
+    aws_region:            ((obfuscate-aws-docker-registry.region))
+
+resources:
+- name: branches
+  type: git-branches
+  icon: github
+  source:
+    uri: git@github.com:discourse/discourse-auth-proxy.git
+    private_key: ((github-discoursebuild))
+  webhook_token: unused-but-some-value-required
+
+- name: trunk
+  type: git
+  icon: github
+  source:
+    uri: git@github.com:discourse/discourse-auth-proxy.git
+    paths: [dist/concourse/pipeline-trunk.yaml]
+    private_key: ((github-discoursebuild))
+  webhook_token: unused-but-some-value-required
+
+- name: plumbing
+  type: git
+  icon: github
+  source:
+    uri: git@github.com:discourse/discourse-auth-proxy.git
+    branch: plumbing
+    private_key: ((github-discoursebuild))
+  webhook_token: unused-but-some-value-required
+
+- name: alpine
+  type: registry-image
+  icon: docker
+  check_every: 24h
+  source:
+    repository: alpine
+    tag: "3"
+    username: ((docker-hub.username))
+    password: ((docker-hub.password))
+
+- name: branch-transformer
+  type: registry-image
+  icon: docker
+  source:
+    repository:            auth-proxy/concourse/branch-transformer
+    tag:                   latest
+    aws_access_key_id:     ((xacco:machine/concourse-ecr-push/docker-registry.AWS_ACCESS_KEY_ID))
+    aws_secret_access_key: ((xacco:machine/concourse-ecr-push/docker-registry.AWS_SECRET_ACCESS_KEY))
+    aws_session_token:     ((xacco:machine/concourse-ecr-push/docker-registry.AWS_SESSION_TOKEN))
+    aws_region:            ((obfuscate-aws-docker-registry.region))
+
+jobs:
+- name: set-self-pipeline
+  plan:
+  - get: plumbing
+    trigger: true
+  - set_pipeline: self
+    file: plumbing/concourse/plumb.yaml
+
+- name: set-trunk-pipeline
+  plan:
+  - in_parallel:
+    - get: plumbing
+      trigger: true
+      passed: [set-self-pipeline]
+    - get: trunk
+      trigger: true
+  - set_pipeline: auth-proxy
+    file: trunk/dist/concourse/pipeline-trunk.yaml
+
+- name: build-pipeline-helpers
+  plan:
+  - in_parallel:
+    - get: plumbing
+      trigger: true
+      passed: [set-self-pipeline]
+    - get: alpine
+      params: {format: oci}
+  - task: build
+    privileged: true
+    output_mapping:
+      image: branch-transformer
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: concourse/oci-build-task
+          username: ((docker-hub.username))
+          password: ((docker-hub.password))
+      inputs:
+      - name: alpine
+      - name: plumbing
+      outputs:
+      - name: image
+      caches:
+      - path: cache
+      params:
+        CONTEXT:                     plumbing/concourse/containers/branch-transformer
+        DOCKERFILE:                  plumbing/concourse/containers/branch-transformer/Dockerfile
+        IMAGE_ARG_BASE_IMAGE_ALPINE: alpine/image.tar
+        OUTPUT_OCI:                  true
+      run:
+        path: build
+  - put: branch-transformer
+    inputs:
+    - branch-transformer
+    params: {image: branch-transformer/image}
+
+- name: set-branch-pipelines
+  plan:
+  - in_parallel:
+    - get: branches
+      trigger: true
+    - get: plumbing
+      trigger: true
+      passed:
+      - build-pipeline-helpers
+    - get: branch-transformer
+      passed: [build-pipeline-helpers]
+  - task: transform
+    image: branch-transformer
+    config:
+      platform: linux
+      inputs:
+      - name: branches
+      outputs:
+      - name: transformed
+      run:
+        path: sh
+        args:
+        - -exc
+        - |
+          exec /usr/local/bin/transform < branches/branches.json > transformed/branches.json
+  - load_var: branches
+    file: transformed/branches.json
+  - across:
+    - var: branch
+      values: ((.:branches))
+    set_pipeline: plumb-auth-proxy-branch
+    file: plumbing/concourse/plumb-branch.yaml
+    instance_vars:
+      branch: ((.:branch.name))
+    vars:
+      image_tag: ((.:branch.tag))

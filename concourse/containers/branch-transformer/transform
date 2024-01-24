@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+
+# pylint: disable=missing-function-docstring
+# pylint: disable=missing-module-docstring
+
+import json
+import re
+import sys
+
+
+def main(unused_argv=None):
+    # https://github.com/aoldershaw/git-branches-resource
+    # see branches.json
+    # JSON array of objects containing the field 'name'
+    input_obj = json.load(sys.stdin)
+
+    all_branches  = [b.get("name") for b in input_obj]
+
+    topic_branches = [name for name in all_branches
+                      if name not in ("main", "master", "plumbing")]
+
+    output_obj = [{"name": name, "tag": tag_from_branch(name)}
+                  for name in topic_branches]
+
+    json.dump(output_obj, sys.stdout)
+
+
+PAT_UNSAFE_TAG       = re.compile(r"[^0-9a-zA-Z.-]", flags=re.ASCII)
+PAT_HYPHEN_MINUS_RUN = re.compile(r"--+")
+
+def tag_from_branch(branch):
+    return patsubsts(branch, ((PAT_UNSAFE_TAG, "-"),
+                              (PAT_HYPHEN_MINUS_RUN, "-")))
+
+
+def patsubsts(s, patsubs):
+    for pat, sub in patsubs:
+        s = pat.sub(sub, s)
+    return s
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

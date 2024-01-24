@@ -1,0 +1,29 @@
+# SECURITY
+# This is a public repository.  Mind what you write.
+# Do not accept modifications from people outside CDCK.
+# Seek infra security review if unsure.
+
+---
+resources:
+- name: discourse-auth-proxy
+  type: git
+  icon: github
+  source:
+    uri: git@github.com:discourse/discourse-auth-proxy.git
+    branch: ((branch))
+    paths: [dist/concourse/pipeline-branch.yaml]
+    private_key: ((github-discoursebuild))
+  webhook_token: unused-but-some-value-required
+
+jobs:
+- name: set-branch-pipeline
+  plan:
+  - get: discourse-auth-proxy
+    trigger: true
+  - set_pipeline: auth-proxy-branch
+    file: discourse-auth-proxy/dist/concourse/pipeline-branch.yaml
+    instance_vars:
+      branch: ((branch))
+    vars:
+      image_repository: auth-proxy/test
+      image_tag: ((image_tag))
