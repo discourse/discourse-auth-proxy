@@ -55,16 +55,4 @@ docker run discourse/auth-proxy
 
 Running will display configuration instructions
 
-You may build an image using
-
-```
-make build
-```
-
-After building, you may publish it as a new release -- i.e. `latest` tag -- using
-
-```
-make release TAG=20220406.135620
-```
-
-(Replace with the actual built tag.)
+A new OCI image is automatically published to [Docker Hub](https://hub.docker.com/r/discourse/auth-proxy/tags) upon every push to branch `main` on GitHub.  The release procedure is documented in t/120578 for the benefit of CDCK staff.

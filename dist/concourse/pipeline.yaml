@@ -1,0 +1,143 @@
+# SECURITY
+# This is a public repository.  Mind what you write.
+# Do not accept modifications from people outside CDCK.
+# Seek infra security review if unsure.
+
+---
+var_sources:
+- name: xacco
+  type: vault
+  config:
+    url: http://127.0.0.1:8200
+    path_prefix: /aws-xacc-obfuscate
+    client_token: unused-but-some-value-required
+
+resources:
+- name: discourse-auth-proxy
+  type: git
+  icon: github
+  source:
+    uri: git@github.com:discourse/discourse-auth-proxy.git
+    private_key: ((github-discoursebuild))
+  webhook_token: unused-but-some-value-required
+
+- name: alpine
+  type: registry-image
+  icon: docker
+  check_every: 24h
+  source:
+    repository: alpine
+    tag: "3"
+    username: ((docker-hub.username))
+    password: ((docker-hub.password))
+
+- name: debian-oci
+  type: registry-image
+  icon: docker
+  check_every: 24h
+  source:
+    repository: debian
+    tag: "bookworm-slim"
+    username: ((docker-hub.username))
+    password: ((docker-hub.password))
+
+- name: go1-oci
+  type: registry-image
+  icon: docker
+  check_every: 168h
+  source:
+    repository: golang
+    tag: "1-alpine"
+    username: ((docker-hub.username))
+    password: ((docker-hub.password))
+
+- name: docker-hub
+  type: registry-image
+  icon: docker
+  source:
+    repository: discourse/auth-proxy
+    username: ((docker-hub.username))
+    password: ((docker-hub.password))
+
+- name: ecr
+  type: registry-image
+  icon: docker
+  source:
+    repository:            auth-proxy
+    aws_access_key_id:     ((xacco:machine/concourse-ecr-push/docker-registry.AWS_ACCESS_KEY_ID))
+    aws_secret_access_key: ((xacco:machine/concourse-ecr-push/docker-registry.AWS_SECRET_ACCESS_KEY))
+    aws_session_token:     ((xacco:machine/concourse-ecr-push/docker-registry.AWS_SESSION_TOKEN))
+    aws_region:            ((obfuscate-aws-docker-registry.region))
+
+jobs:
+- name: build
+  serial: true
+  plan:
+  - in_parallel:
+    - get: discourse-auth-proxy
+      trigger: true
+    - get: alpine
+    - get: debian-oci
+      params: {format: oci}
+    - get: go1-oci
+      trigger: true
+      params: {format: oci}
+
+  - task: generate-tags
+    image: alpine
+    config:
+      platform: linux
+      outputs:
+      - name: tags
+      run:
+        path: sh
+        args:
+        - -exc
+        - |
+          echo latest            >>tags/tags
+          date -u +%Y%m%d.%H%M%S >>tags/tags
+
+  - task: build
+    privileged: true
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: concourse/oci-build-task
+          username: ((docker-hub.username))
+          password: ((docker-hub.password))
+      inputs:
+      - name: discourse-auth-proxy
+      - name: debian-oci
+      - name: go1-oci
+      outputs:
+      - name: image
+      caches:
+      - path: cache
+      params:
+        CONTEXT:                        discourse-auth-proxy
+        DOCKERFILE:                     discourse-auth-proxy/dist/Dockerfile
+        IMAGE_ARG_BASE_IMAGE_DEBIAN:    debian-oci/image.tar
+        IMAGE_ARG_BASE_IMAGE_GO_ALPINE: go1-oci/image.tar
+        OUTPUT_OCI:                     true
+      run:
+        path: build
+
+  - in_parallel:
+    - put: docker-hub
+      inputs:
+      - image
+      - tags
+      params:
+        image: image/image
+        additional_tags: tags/tags
+      get_params: {skip_download: true}
+    - put: ecr
+      inputs:
+      - image
+      - tags
+      params:
+        image: image/image
+        additional_tags: tags/tags
+      get_params: {skip_download: true}
