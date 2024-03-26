@@ -17,9 +17,8 @@ resource_types:
   type: registry-image
   source:
     repository:            practical-concourse/resource-types/metadata
-    aws_access_key_id:     ((xacco:machine/concourse-ecr-pull/docker-registry.AWS_ACCESS_KEY_ID))
-    aws_secret_access_key: ((xacco:machine/concourse-ecr-pull/docker-registry.AWS_SECRET_ACCESS_KEY))
-    aws_session_token:     ((xacco:machine/concourse-ecr-pull/docker-registry.AWS_SESSION_TOKEN))
+    aws_access_key_id:     ((concourse-ecr-pull-rtype.AWS_ACCESS_KEY_ID))
+    aws_secret_access_key: ((concourse-ecr-pull-rtype.AWS_SECRET_ACCESS_KEY))
     aws_region:            ((obfuscate-aws-docker-registry.region))
 
 resources:
