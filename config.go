@@ -26,6 +26,7 @@ type Config struct {
 	WhitelistPrefix string
 	UsernameHeader  string
 	GroupsHeader    string
+	UserIDHeader    string
 	Timeout         time.Duration
 	SRVAbandonAfter time.Duration
 	LogRequests     bool
@@ -93,6 +94,7 @@ func ParseConfig() (*Config, error) {
 	c.WhitelistPrefix = *rc.WhitelistPrefix
 	c.UsernameHeader = *rc.UsernameHeader
 	c.GroupsHeader = *rc.GroupsHeader
+	c.UserIDHeader = *rc.UserIDHeader
 	c.Timeout = time.Duration(*rc.Timeout) * time.Second
 	if *rc.SRVAbandonAfter < 1 {
 		c.SRVAbandonAfter = 0
@@ -119,6 +121,7 @@ type rawConfig struct {
 	WhitelistPrefix *string
 	UsernameHeader  *string
 	GroupsHeader    *string
+	UserIDHeader    *string
 	Timeout         *int
 	SRVAbandonAfter *int
 	LogRequests     *bool
@@ -138,6 +141,7 @@ func parseRawConfig() *rawConfig {
 		WhitelistPrefix: flag.String("whitelist-prefix", "", "Prefix for paths which do not require authorization"),
 		UsernameHeader:  flag.String("username-header", "Discourse-User-Name", "Request header to pass authenticated username into"),
 		GroupsHeader:    flag.String("groups-header", "Discourse-User-Groups", "Request header to pass authenticated groups into"),
+		UserIDHeader:    flag.String("user-id-header", "", "Request header to pass authenticated user id into (default: disabled)"),
 		Timeout:         flag.Int("timeout", 10, "Read/write timeout (seconds)"),
 		SRVAbandonAfter: flag.Int("dns-srv-abandon-after", 600, "Abandon DNS SRV discovery if origin RRs do not appear within this time (seconds).  When negative, attempt SRV lookups indefinitely."),
 		LogRequests:     flag.Bool("log-requests", false, "Log all requests to standard error"),
