@@ -238,6 +238,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		expiration := time.Now().Add(reauthorizeInterval)
 
 		cookieData := strings.Join([]string{username, strings.Join(groups, "|"), user_id}, ",")
+		cookieData = url.QueryEscape(cookieData)
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
 			Value:    signCookie(cookieData, config.CookieSecret),
@@ -298,6 +299,10 @@ func parseCookie(data, secret string) (username string, groups string, user_id s
 		err = fmt.Errorf("Expecting signature to match")
 		return
 	} else {
+		parsed, err = url.QueryUnescape(parsed)
+		if err != nil {
+			return
+		}
 		splitted := strings.Split(parsed, ",")
 		username = splitted[0]
 		groups = splitted[1]
