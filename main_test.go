@@ -182,25 +182,46 @@ func TestAllowedAnon(t *testing.T) {
 
 func TestInvalidSecretFails(t *testing.T) {
 	signed := signCookie("user,group", "secretfoo")
-	_, _, parseError := parseCookie(signed, "secretbar")
+	_, _, _, parseError := parseCookie(signed, "secretbar")
 
 	assert.Error(t, parseError)
 }
 
 func TestInvalidPayloadFails(t *testing.T) {
 	signed := signCookie("user,group", "secretfoo") + "garbage"
-	_, _, parseError := parseCookie(signed, "secretfoo")
+	_, _, _, parseError := parseCookie(signed, "secretfoo")
 
 	assert.Error(t, parseError)
 }
 
 func TestValidPayload(t *testing.T) {
-	signed := signCookie("user,group", "secretfoo")
-	username, group, parseError := parseCookie(signed, "secretfoo")
+	signed := signCookie("user,group,1", "secretfoo")
+	username, group, user_id, parseError := parseCookie(signed, "secretfoo")
 
 	assert.NoError(t, parseError)
 	assert.Equal(t, username, "user")
 	assert.Equal(t, group, "group")
+	assert.Equal(t, user_id, "1")
+}
+
+func TestValidPayloadWithoutUserID(t *testing.T) {
+	signed := signCookie("user,group", "secretfoo")
+	username, group, user_id, parseError := parseCookie(signed, "secretfoo")
+
+	assert.NoError(t, parseError)
+	assert.Equal(t, username, "user")
+	assert.Equal(t, group, "group")
+	assert.Equal(t, user_id, "")
+}
+
+func TestValidPayloadWithUnicode(t *testing.T) {
+	signed := signCookie("用户名,群组,2", "secretfoo")
+	username, group, user_id, parseError := parseCookie(signed, "secretfoo")
+
+	assert.NoError(t, parseError)
+	assert.Equal(t, username, "用户名")
+	assert.Equal(t, group, "群组")
+	assert.Equal(t, user_id, "2")
 }
 
 func TestNotWhitelistedPath(t *testing.T) {
