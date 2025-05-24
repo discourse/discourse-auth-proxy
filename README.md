@@ -38,6 +38,7 @@ ORIGIN_URL='http://somesite.com' \
 PROXY_URL='http://listen.com' \
 SSO_SECRET='somesecret' \
 SSO_URL='http://somediscourse.com' \
+ALLOW_ALL='True' \
 ./discourse-auth-proxy
 ```
 
