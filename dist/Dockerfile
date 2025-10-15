@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
 
-ARG BASE_IMAGE_DEBIAN=debian:bookworm-slim
+ARG BASE_IMAGE_DEBIAN=debian:trixie-slim
 ARG BASE_IMAGE_GO_ALPINE=golang:1-alpine
 
 
-FROM ${BASE_IMAGE_GO_ALPINE} AS builder
+FROM --platform=$BUILDPLATFORM ${BASE_IMAGE_GO_ALPINE} AS builder
 
 ARG TARGETARCH
 ARG TARGETOS
@@ -14,21 +14,16 @@ RUN apk -v --no-progress --no-cache add git
 WORKDIR /src
 
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/root/.cache/go-build \
-  go mod download
+RUN --mount=type=cache,target=/root/.cache/go-build go mod download
 
 COPY internal ./internal/
-COPY *.go ./
-RUN --mount=type=cache,target=/root/.cache/go-build \
-  CGO_ENABLED=0 \
-  GOARCH=${TARGETARCH} \
-  GOOS=${TARGETOS} \
-  go build .
+COPY *.go     ./
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOARCH=${TARGETARCH} GOOS=${TARGETOS} go build .
 
 
 FROM ${BASE_IMAGE_DEBIAN}
 
-RUN <<EOF sh -exs
+RUN <<'EOF' sh -exs
 DEBIAN_FRONTEND=noninteractive apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade
 DEBIAN_FRONTEND=noninteractive apt-get clean
