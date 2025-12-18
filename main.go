@@ -161,15 +161,20 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 	}
 
 	cookie, err := r.Cookie(cookieName)
-	var username, groups string
+	var username, groups, user_id string
 
 	if err == nil && cookie != nil {
-		username, groups, err = parseCookie(cookie.Value, config.CookieSecret)
+		username, groups, user_id, err = parseCookie(cookie.Value, config.CookieSecret)
 	}
 
 	if err == nil {
 		r.Header.Set(config.UsernameHeader, username)
 		r.Header.Set(config.GroupsHeader, groups)
+
+		if config.UserIDHeader != "" {
+			r.Header.Set(config.UserIDHeader, user_id)
+		}
+
 		handler.ServeHTTP(w, r)
 		return
 	}
@@ -199,6 +204,7 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 			admin    = parsedQuery.Get("admin")
 			nonce    = parsedQuery.Get("nonce")
 			groups   = NewStringSet(parsedQuery.Get("groups"))
+			user_id  = parsedQuery.Get("external_id")
 		)
 
 		if len(nonce) == 0 {
@@ -231,7 +237,8 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		// we have a valid auth
 		expiration := time.Now().Add(reauthorizeInterval)
 
-		cookieData := strings.Join([]string{username, strings.Join(groups, "|")}, ",")
+		cookieData := strings.Join([]string{username, strings.Join(groups, "|"), user_id}, ",")
+		cookieData = url.QueryEscape(cookieData)
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
 			Value:    signCookie(cookieData, config.CookieSecret),
@@ -270,10 +277,11 @@ func signCookie(data, secret string) string {
 	return data + "," + computeHMAC(data, secret)
 }
 
-func parseCookie(data, secret string) (username string, groups string, err error) {
+func parseCookie(data, secret string) (username string, groups string, user_id string, err error) {
 	err = nil
 	username = ""
 	groups = ""
+	user_id = ""
 
 	split := strings.Split(data, ",")
 
@@ -291,8 +299,16 @@ func parseCookie(data, secret string) (username string, groups string, err error
 		err = fmt.Errorf("Expecting signature to match")
 		return
 	} else {
-		username = strings.Split(parsed, ",")[0]
-		groups = strings.Split(parsed, ",")[1]
+		parsed, err = url.QueryUnescape(parsed)
+		if err != nil {
+			return
+		}
+		splitted := strings.Split(parsed, ",")
+		username = splitted[0]
+		groups = splitted[1]
+		if len(splitted) >= 3 {
+			user_id = splitted[2]
+		}
 	}
 
 	return
