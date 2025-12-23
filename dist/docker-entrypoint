@@ -17,9 +17,10 @@ if [ -z "$OK" ]; then
 	ORIGIN_URL=http://somesite.com
 	SSO_SECRET=somesecret
 	SSO_URL=http://someurl
+	ALLOW_ALL=True
 	HOST_PORT=3001
 
-	docker run -d --restart=always -e ORIGIN_URL=\$ORIGIN_URL -e PROXY_URL=http://0.0.0.0:80 -e SSO_SECRET=\$SSO_SECRET -e SSO_URL=\$SSO_URL -p \$HOST_PORT:80 discourse/discourse-auth-proxy
+	docker run -d --restart=always -e ORIGIN_URL=\$ORIGIN_URL -e PROXY_URL=http://0.0.0.0:80 -e SSO_SECRET=\$SSO_SECRET -e SSO_URL=\$SSO_URL -e ALLOW_ALL=\$ALLOW_ALL -p \$HOST_PORT:80 discourse/discourse-auth-proxy
 
 EOF
   exit 1
