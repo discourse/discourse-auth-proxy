@@ -50,7 +50,7 @@ resources:
   check_every: 24h
   source:
     repository: debian
-    tag: "bookworm-slim"
+    tag: "trixie-slim"
     username: ((docker-hub.username))
     password: ((docker-hub.password))
 
