@@ -14,6 +14,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -35,8 +36,9 @@ var (
 )
 
 const (
-	cookieName          = "__discourse_proxy"
-	reauthorizeInterval = 365 * 24 * time.Hour
+	cookieName = "__discourse_proxy"
+	// Lifetime of the auth cookie when -reauthorize-interval is not set.
+	defaultCookieLifetime = 365 * 24 * time.Hour
 )
 
 func main() {
@@ -162,16 +164,28 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 
 	cookie, err := r.Cookie(cookieName)
 	var username, groups string
+	var issuedAt time.Time
 
 	if err == nil && cookie != nil {
-		username, groups, err = parseCookie(cookie.Value, config.CookieSecret)
+		username, groups, issuedAt, err = parseCookiePayload(cookie.Value, config.CookieSecret)
 	}
 
 	if err == nil {
-		r.Header.Set(config.UsernameHeader, username)
-		r.Header.Set(config.GroupsHeader, groups)
-		handler.ServeHTTP(w, r)
-		return
+		switch reauthDecision(config, issuedAt, time.Now(), isNavigation(r)) {
+		case reauthNotNeeded:
+			r.Header.Set(config.UsernameHeader, username)
+			r.Header.Set(config.GroupsHeader, groups)
+			handler.ServeHTTP(w, r)
+			return
+		case reauthRejected:
+			// A fetch()/XHR cannot follow the redirect to the SSO provider (cross
+			// origin), so tell it plainly instead; the next page load re-authorizes.
+			writeHttpError(http.StatusUnauthorized)
+			return
+		}
+		// reauthRedirect: fall through to the SSO round trip below. With an active
+		// session on the SSO provider this is two invisible redirects; without one
+		// (logged out, suspended, deactivated) the user ends up on its login page.
 	}
 
 	query := r.URL.Query()
@@ -229,9 +243,10 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 		}
 
 		// we have a valid auth
-		expiration := time.Now().Add(reauthorizeInterval)
+		now := time.Now()
+		expiration := now.Add(cookieLifetime(config))
 
-		cookieData := strings.Join([]string{username, strings.Join(groups, "|")}, ",")
+		cookieData := strings.Join([]string{username, strings.Join(groups, "|"), strconv.FormatInt(now.Unix(), 10)}, ",")
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
 			Value:    signCookie(cookieData, config.CookieSecret),
@@ -271,10 +286,14 @@ func signCookie(data, secret string) string {
 }
 
 func parseCookie(data, secret string) (username string, groups string, err error) {
-	err = nil
-	username = ""
-	groups = ""
+	username, groups, _, err = parseCookiePayload(data, secret)
+	return
+}
 
+// parseCookiePayload verifies the cookie signature and returns its fields.
+// Cookies are "username,groups,issuedAt,signature"; cookies written before
+// issuedAt existed ("username,groups,signature") come back with a zero issuedAt.
+func parseCookiePayload(data, secret string) (username string, groups string, issuedAt time.Time, err error) {
 	split := strings.Split(data, ",")
 
 	if len(split) < 2 {
@@ -283,19 +302,77 @@ func parseCookie(data, secret string) (username string, groups string, err error
 	}
 
 	signature := split[len(split)-1]
-	parsed := strings.Join(split[:len(split)-1], ",")
-	expected := computeHMAC(parsed, secret)
-
-	if expected != signature {
-		parsed = ""
+	fields := split[:len(split)-1]
+	if computeHMAC(strings.Join(fields, ","), secret) != signature {
 		err = fmt.Errorf("Expecting signature to match")
 		return
-	} else {
-		username = strings.Split(parsed, ",")[0]
-		groups = strings.Split(parsed, ",")[1]
 	}
 
+	switch len(fields) {
+	case 2:
+	case 3:
+		unix, perr := strconv.ParseInt(fields[2], 10, 64)
+		if perr != nil {
+			err = fmt.Errorf("invalid issue time in cookie: %w", perr)
+			return
+		}
+		issuedAt = time.Unix(unix, 0)
+	default:
+		err = fmt.Errorf("unexpected number of fields in cookie: %d", len(fields))
+		return
+	}
+
+	username, groups = fields[0], fields[1]
 	return
+}
+
+type reauthAction int
+
+const (
+	reauthNotNeeded reauthAction = iota // cookie is fresh enough, serve the request
+	reauthRedirect                      // send the browser through the SSO provider again
+	reauthRejected                      // stale cookie on a non-navigation request: 401
+)
+
+// reauthDecision decides what to do with a request carrying a validly signed
+// cookie. Without -reauthorize-interval cookies never go stale (the historic
+// behaviour). With it, page loads re-run the SSO round trip once the cookie is
+// older than the interval; other requests (fetch/XHR, images) keep working for
+// an extra -reauthorize-grace, because they cannot follow a cross-origin redirect.
+func reauthDecision(c *Config, issuedAt, now time.Time, navigation bool) reauthAction {
+	if c.ReauthorizeInterval <= 0 {
+		return reauthNotNeeded
+	}
+	age := now.Sub(issuedAt)
+	if !issuedAt.IsZero() && age >= 0 && age < c.ReauthorizeInterval {
+		return reauthNotNeeded
+	}
+	if navigation {
+		return reauthRedirect
+	}
+	if !issuedAt.IsZero() && age >= 0 && age < c.ReauthorizeInterval+c.ReauthorizeGrace {
+		return reauthNotNeeded
+	}
+	return reauthRejected
+}
+
+// isNavigation reports whether the request is a top-level page load, i.e. one
+// the browser can follow through a redirect to the SSO provider and back.
+func isNavigation(r *http.Request) bool {
+	if mode := r.Header.Get("Sec-Fetch-Mode"); mode != "" {
+		return mode == "navigate"
+	}
+	// Clients without Fetch Metadata: a GET asking for HTML is a page load.
+	return r.Method == http.MethodGet && strings.Contains(r.Header.Get("Accept"), "text/html")
+}
+
+// cookieLifetime is how long the browser keeps the auth cookie. With a
+// reauthorize interval there is no point keeping it beyond interval + grace.
+func cookieLifetime(c *Config) time.Duration {
+	if c.ReauthorizeInterval <= 0 {
+		return defaultCookieLifetime
+	}
+	return c.ReauthorizeInterval + c.ReauthorizeGrace
 }
 
 // sso_payload takes the SSO secret and the two redirection URLs, stores the

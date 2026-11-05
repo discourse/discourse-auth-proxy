@@ -29,6 +29,9 @@ type Config struct {
 	Timeout         time.Duration
 	SRVAbandonAfter time.Duration
 	LogRequests     bool
+
+	ReauthorizeInterval time.Duration
+	ReauthorizeGrace    time.Duration
 }
 
 func ParseConfig() (*Config, error) {
@@ -100,6 +103,11 @@ func ParseConfig() (*Config, error) {
 		c.SRVAbandonAfter = time.Duration(*rc.SRVAbandonAfter) * time.Second
 	}
 	c.LogRequests = *rc.LogRequests
+	if *rc.ReauthorizeInterval < 0 || *rc.ReauthorizeGrace < 0 {
+		return nil, fmt.Errorf("reauthorize-interval and reauthorize-grace must not be negative")
+	}
+	c.ReauthorizeInterval = *rc.ReauthorizeInterval
+	c.ReauthorizeGrace = *rc.ReauthorizeGrace
 
 	c.CookieSecret = uuid.New()
 
@@ -122,6 +130,9 @@ type rawConfig struct {
 	Timeout         *int
 	SRVAbandonAfter *int
 	LogRequests     *bool
+
+	ReauthorizeInterval *time.Duration
+	ReauthorizeGrace    *time.Duration
 }
 
 func parseRawConfig() *rawConfig {
@@ -141,6 +152,9 @@ func parseRawConfig() *rawConfig {
 		Timeout:         flag.Int("timeout", 10, "Read/write timeout (seconds)"),
 		SRVAbandonAfter: flag.Int("dns-srv-abandon-after", 600, "Abandon DNS SRV discovery if origin RRs do not appear within this time (seconds).  When negative, attempt SRV lookups indefinitely."),
 		LogRequests:     flag.Bool("log-requests", false, "Log all requests to standard error"),
+
+		ReauthorizeInterval: flag.Duration("reauthorize-interval", 0, "Re-run the SSO round trip on page loads once the auth cookie is older than this, e.g. 15m.  With an active session on the SSO provider this is invisible; after a logout or suspension there the user has to log in again.  0 keeps cookies valid for a year"),
+		ReauthorizeGrace:    flag.Duration("reauthorize-grace", 0, "Additional time a stale cookie stays valid for requests that are not page loads (fetch/XHR, assets), which cannot follow a redirect to the SSO provider.  After that they get 401"),
 	}
 	flag.Parse()
 	return c
