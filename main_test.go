@@ -226,3 +226,40 @@ func TestWhitelistedPrefixPath(t *testing.T) {
 
 	assert.Equal(t, true, res)
 }
+
+func TestParseSameSite(t *testing.T) {
+	for in, want := range map[string]http.SameSite{
+		"": 0, "lax": http.SameSiteLaxMode, "Strict": http.SameSiteStrictMode, " none ": http.SameSiteNoneMode,
+	} {
+		got, err := parseSameSite(in)
+		assert.NoError(t, err)
+		assert.Equal(t, want, got, in)
+	}
+	_, err := parseSameSite("sometimes")
+	assert.Error(t, err)
+}
+
+func TestCookieAttributes(t *testing.T) {
+	res := GetTestResult(
+		t,
+		func(config *Config) {
+			config.AllowAll = true
+			config.CookieSecure = true
+			config.CookieSameSite = http.SameSiteLaxMode
+		},
+		func(options *SSOOptions) {},
+	)
+
+	assert.Equal(t, 200, res.StatusCode)
+	setCookie := res.Header.Get("Set-Cookie")
+	assert.Contains(t, setCookie, "; Secure")
+	assert.Contains(t, setCookie, "; SameSite=Lax")
+}
+
+func TestCookieAttributesDefaultOff(t *testing.T) {
+	res := GetTestResult(t, func(config *Config) { config.AllowAll = true }, func(options *SSOOptions) {})
+
+	setCookie := res.Header.Get("Set-Cookie")
+	assert.NotContains(t, setCookie, "Secure")
+	assert.NotContains(t, setCookie, "SameSite")
+}
