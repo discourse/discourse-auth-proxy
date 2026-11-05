@@ -16,7 +16,22 @@ Usage of ./discourse-auth-proxy:
   -sso-url="": SSO endpoint eg: http://discourse.example.com
   -allow-all: don't restrict access to "admin" users on the SSO endpoint
   -timeout="10": Read/Write timeout
+  -reauthorize-interval=0: re-run the SSO round trip on page loads once the auth cookie is older than this (e.g. 15m)
+  -reauthorize-grace=0: extra validity of a stale cookie for requests that are not page loads (fetch/XHR)
 ```
+
+Re-authorization
+---
+
+By default the auth cookie is valid for a year: a user who logs out of Discourse, or whose account
+gets suspended, keeps access until the cookie expires or the proxy restarts (the cookie secret is
+generated at startup).
+
+With `-reauthorize-interval` (env `REAUTHORIZE_INTERVAL`) the cookie records when it was issued, and a
+page load with an older cookie goes through `/session/sso_provider` again. While the Discourse session
+is alive this is two invisible redirects; after a logout or suspension the user lands on the Discourse
+login page. Requests that cannot follow a cross-origin redirect (`fetch`/XHR, detected via
+`Sec-Fetch-Mode`) are served for another `-reauthorize-grace` and get `401` afterwards.
 
 ```
 +--------+    proxy-url   +---------+    listen-url    +----------------------+
