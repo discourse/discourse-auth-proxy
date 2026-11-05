@@ -16,6 +16,8 @@ Usage of ./discourse-auth-proxy:
   -sso-url="": SSO endpoint eg: http://discourse.example.com
   -allow-all: don't restrict access to "admin" users on the SSO endpoint
   -timeout="10": Read/Write timeout
+  -cookie-secure=false: set the Secure attribute on the auth cookie
+  -cookie-samesite="": SameSite attribute of the auth cookie: lax, strict or none
 ```
 
 ```

@@ -237,6 +237,8 @@ func redirectIfNoCookie(handler http.Handler, r *http.Request, w http.ResponseWr
 			Value:    signCookie(cookieData, config.CookieSecret),
 			Expires:  expiration,
 			HttpOnly: true,
+			Secure:   config.CookieSecure,
+			SameSite: config.CookieSameSite,
 			Path:     "/",
 		})
 

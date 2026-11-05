@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/namsral/flag"
@@ -29,6 +31,9 @@ type Config struct {
 	Timeout         time.Duration
 	SRVAbandonAfter time.Duration
 	LogRequests     bool
+
+	CookieSecure   bool
+	CookieSameSite http.SameSite
 }
 
 func ParseConfig() (*Config, error) {
@@ -101,6 +106,16 @@ func ParseConfig() (*Config, error) {
 	}
 	c.LogRequests = *rc.LogRequests
 
+	c.CookieSecure = *rc.CookieSecure
+	sameSite, err := parseSameSite(*rc.CookieSameSite)
+	if err != nil {
+		return nil, err
+	}
+	if sameSite == http.SameSiteNoneMode && !c.CookieSecure {
+		return nil, fmt.Errorf("cookie-samesite=none requires cookie-secure (browsers reject it otherwise)")
+	}
+	c.CookieSameSite = sameSite
+
 	c.CookieSecret = uuid.New()
 
 	return c, nil
@@ -122,6 +137,9 @@ type rawConfig struct {
 	Timeout         *int
 	SRVAbandonAfter *int
 	LogRequests     *bool
+
+	CookieSecure   *bool
+	CookieSameSite *string
 }
 
 func parseRawConfig() *rawConfig {
@@ -141,9 +159,28 @@ func parseRawConfig() *rawConfig {
 		Timeout:         flag.Int("timeout", 10, "Read/write timeout (seconds)"),
 		SRVAbandonAfter: flag.Int("dns-srv-abandon-after", 600, "Abandon DNS SRV discovery if origin RRs do not appear within this time (seconds).  When negative, attempt SRV lookups indefinitely."),
 		LogRequests:     flag.Bool("log-requests", false, "Log all requests to standard error"),
+
+		CookieSecure:   flag.Bool("cookie-secure", false, "Set the Secure attribute on the auth cookie (only sent over HTTPS)"),
+		CookieSameSite: flag.String("cookie-samesite", "", "SameSite attribute of the auth cookie: lax, strict or none (default: not set)"),
 	}
 	flag.Parse()
 	return c
+}
+
+// parseSameSite maps the -cookie-samesite flag to http.SameSite. An empty value
+// leaves the attribute off the cookie, as before the flag existed.
+func parseSameSite(s string) (http.SameSite, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "":
+		return 0, nil
+	case "lax":
+		return http.SameSiteLaxMode, nil
+	case "strict":
+		return http.SameSiteStrictMode, nil
+	case "none":
+		return http.SameSiteNoneMode, nil
+	}
+	return 0, fmt.Errorf("invalid cookie-samesite %q (want lax, strict or none)", s)
 }
 
 func usage(err error) {
